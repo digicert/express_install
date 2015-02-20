@@ -4,11 +4,11 @@ from collections import OrderedDict
 
 class ParserException(Exception):
     def __init__(self, message, directives):
-        self.msg = "ERROR: %s" % message
+        self.msg = "ERROR: {0}".format(message)
         if directives:
-            self.msg = "%s\n\nYou will need to manually add the following directives:\n" % self.msg
+            self.msg = "{0}\n\nYou will need to manually add the following directives:\n".format(self.msg)
             for directive in directives:
-                self.msg = "%s\t%s %s\n" % (self.msg, directive, directives[directive])
+                self.msg = "{0}\t{1} {2}\n".format(self.msg, directive, directives[directive])
 
 
 class BaseParser(object):
@@ -56,7 +56,7 @@ class BaseParser(object):
 
     def set_certificate_directives(self, vhost_path):
         if not vhost_path:
-            raise ParserException("Virtual Host was not found for %s" % self.domain, self.directives)
+            raise ParserException("Virtual Host was not found for {0}".format(self.domain), self.directives)
 
         try:
             for directive in self.directives:
@@ -65,6 +65,7 @@ class BaseParser(object):
                 self.aug.set(vhost_path + "/directive[last()]", directive)
         except Exception as e:
             raise ParserException(
-                "An error occurred while updating the Virtual Host for %s.\n%s" % (self.domain, e.msg), self.directives)
+                "An error occurred while updating the Virtual Host for {0}.\n{1}".format(self.domain, e.msg),
+                self.directives)
 
         self.aug.save()
