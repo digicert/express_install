@@ -59,13 +59,18 @@ class BaseParser(object):
             raise ParserException("Virtual Host was not found for {0}".format(self.domain), self.directives)
 
         try:
+            updates = 0
             for directive in self.directives:
                 # FIXME this needs to look for and use existing existing directives in the passed vhost file
-                self.aug.set(vhost_path + "/directive[last()+1]/arg", self.directives[directive])
-                self.aug.set(vhost_path + "/directive[last()]", directive)
+                val = self.aug.match("{0}/*[self::directive='{1}']".format(vhost_path, directive))
+                if val:
+                    self.aug.set("{0}/*[self::directive='{1}']/arg".format(vhost_path, directive), self.directives[directive])
+                    update = update+1
+            if updates < len(self.directives):
+                raise Exception("could not update all directives ({0})".format(updates))
         except Exception as e:
             raise ParserException(
-                "An error occurred while updating the Virtual Host for {0}.\n{1}".format(self.domain, e.msg),
+                "An error occurred while updating the Virtual Host for {0}.\n{1}".format(self.domain, e.message),
                 self.directives)
 
         self.aug.save()
