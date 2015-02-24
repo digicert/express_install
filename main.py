@@ -85,7 +85,7 @@ def parse_apache(args):
             virtual_host = apache_parser.get_vhost_path_by_domain()
             apache_parser.set_certificate_directives(virtual_host)
         except Exception as e:
-            print e.msg
+            print e.message
 
 
 # TODO: commenting out for now, these may not be necessary
