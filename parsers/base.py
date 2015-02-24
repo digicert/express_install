@@ -1,5 +1,6 @@
 import augeas
 import os
+import shutil
 from collections import OrderedDict
 
 
@@ -25,11 +26,13 @@ class BaseParser(object):
         if not os.path.isfile(chain_path):
             raise ParserException("{0} could not be found on the filesystem".format(chain_path))
 
-        if not os.access(cert_path, os.R_OK):
-            raise ParserException("{0} is not readable by this user".format(cert_path))
+        cert_path_perm = int(oct(os.stat(cert_path).st_mode)[-3:])
+        if cert_path_perm != 755:
+            raise ParserException("{0} does not have the necessary permissions set (755 required, {1} set)".format(cert_path, cert_path_perm))
 
-        if not os.access(chain_path, os.R_OK):
-            raise ParserException("{0} is not readable by this user".format(chain_path))
+        chain_path_perm = int(oct(os.stat(chain_path).st_mode)[-3:])
+        if chain_path_perm != 755:
+            raise ParserException("{0} does not have the necessary permissions set (755 required, {1} set)".format(chain_path, chain_path_perm))
 
         self.directives = OrderedDict()
         self.directives['SSLCertificateFile'] = cert_path
@@ -72,6 +75,7 @@ class BaseParser(object):
     def get_vhost_path_by_domain(self):
         matches = self.aug.match("/files/etc/apache2/sites-available/*")
         for host_file in matches:
+            print host_file
             vhosts = self.aug.match(host_file + "/VirtualHost")
             if not vhosts:
                 vhosts = self.aug.match(host_file + "/*/VirtualHost")
@@ -97,7 +101,9 @@ class BaseParser(object):
             if not vhost_path:
                 raise Exception("Virtual Host was not found for {0}".format(self.domain))
 
-            # FIXME back up the file...
+            # back up the configutation file
+            conf_file = vhost_path[6:vhost_path.index("IfModule")-1]
+            shutil.copy(conf_file, "{0}~previous".format(conf_file))
 
             updates = 0
             errors = []
