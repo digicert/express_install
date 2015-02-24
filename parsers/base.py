@@ -4,11 +4,11 @@ from collections import OrderedDict
 
 class ParserException(Exception):
     def __init__(self, message, directives):
-        self.msg = "ERROR: {0}".format(message)
+        self.message = "ERROR: {0}".format(message)
         if directives:
-            self.msg = "{0}\n\nYou will need to manually add the following directives:\n".format(self.msg)
+            self.message = "{0}\n\nYou will need to manually add the following directives:\n".format(self.message)
             for directive in directives:
-                self.msg = "{0}\t{1} {2}\n".format(self.msg, directive, directives[directive])
+                self.message = "{0}\t{1} {2}\n".format(self.message, directive, directives[directive])
 
 
 class BaseParser(object):
@@ -65,7 +65,9 @@ class BaseParser(object):
                 val = self.aug.match("{0}/*[self::directive='{1}']".format(vhost_path, directive))
                 if val:
                     self.aug.set("{0}/*[self::directive='{1}']/arg".format(vhost_path, directive), self.directives[directive])
-                    update = update+1
+                    updates = updates+1
+                else:
+                    raise Exception("could not find")
             if updates < len(self.directives):
                 raise Exception("could not update all directives ({0})".format(updates))
         except Exception as e:

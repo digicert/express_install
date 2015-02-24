@@ -6,4 +6,5 @@ try:
     #vhost = "test"
     b.set_certificate_directives(vhost)
 except Exception as e:
-    print e
+    print "got an exception!"
+    print e.message
