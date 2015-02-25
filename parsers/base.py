@@ -75,25 +75,26 @@ class BaseParser(object):
     def get_vhost_path_by_domain(self):
         matches = self.aug.match("/files/etc/apache2/sites-available/*")
         for host_file in matches:
-            print host_file
-            vhosts = self.aug.match(host_file + "/VirtualHost")
-            if not vhosts:
-                vhosts = self.aug.match(host_file + "/*/VirtualHost")
-            for vhost in vhosts:
-                print self.aug.get(vhost + "/arg")
-                if '443' in self.aug.get(vhost + "/arg"):
-                    check_matches = self.aug.match(vhost + '/directive')
-                    if check_matches:
-                        for check in check_matches:
-                            if self.aug.get(check) == 'ServerName' and self.aug.get(check + "/arg") is not None \
-                                    and self.aug.get(check + "/arg") == self.domain:
-                                return vhost
-                    else:
+            if '~previous' not in host_file:
+                print host_file
+                vhosts = self.aug.match(host_file + "/VirtualHost")
+                if not vhosts:
+                    vhosts = self.aug.match(host_file + "/*/VirtualHost")
+                for vhost in vhosts:
+                    print self.aug.get(vhost + "/arg")
+                    if '443' in self.aug.get(vhost + "/arg"):
                         check_matches = self.aug.match(vhost + '/directive')
-                        for check in check_matches:
-                            if self.aug.get(check) == 'ServerName' and self.aug.get(check + "/arg") is not None \
-                                    and self.aug.get(check + "/arg") == self.domain:
-                                return vhost
+                        if check_matches:
+                            for check in check_matches:
+                                if self.aug.get(check) == 'ServerName' and self.aug.get(check + "/arg") is not None \
+                                        and self.aug.get(check + "/arg") == self.domain:
+                                    return vhost
+                        else:
+                            check_matches = self.aug.match(vhost + '/directive')
+                            for check in check_matches:
+                                if self.aug.get(check) == 'ServerName' and self.aug.get(check + "/arg") is not None \
+                                        and self.aug.get(check + "/arg") == self.domain:
+                                    return vhost
 
     def set_certificate_directives(self, vhost_path):
         try:
