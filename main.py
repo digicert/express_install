@@ -32,6 +32,8 @@ def run():
                           help="I need a host to update")
     parser_b.add_argument("--cert", action="store",
                           help="I need the path to the cert for the configuration file")
+    parser_b.add_argument("--key", action="store",
+                          help="I need the path to the key for the configuration file")
     parser_b.add_argument("--chain", action="store",
                           help="I need the cert chain for the configuration file")
     parser_b.set_defaults(func=parse_apache)
@@ -78,9 +80,9 @@ def restart_apache(args):
 
 def parse_apache(args):
     print "my job is to parse the apache configuration file and store a backup and update the ssl config"
-    if args.host and args.cert and args.chain:
+    if args.host and args.cert and args.key and args.chain:
         try:
-            apache_parser = BaseParser(args.host, args.cert, args.chain)
+            apache_parser = BaseParser(args.host, args.cert, args.key, args.chain)
             apache_parser.load_apache_configs()
             virtual_host = apache_parser.get_vhost_path_by_domain()
             apache_parser.set_certificate_directives(virtual_host)
