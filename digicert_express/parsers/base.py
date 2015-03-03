@@ -163,18 +163,22 @@ class BaseParser(object):
                 config_value = self.aug.get(check + "/arg")
 
                 if "arg" not in config_type and "#comment" not in config_type:
+                    # check if we have a config_value, if we don't its likely that there are multiple
+                    # values rather than just one and we need to get them via aug.match
                     if not config_value:
-                        check_matches1 = self.aug.match("{0}/{1}/arg".format(path, config_type))
-                        for check1 in check_matches1:
-                            values.append(self.aug.get(check1))
+                        arg_check_matches = self.aug.match("{0}/{1}/arg".format(path, config_type))
+                        for arg_check in arg_check_matches:
+                            values.append(self.aug.get(arg_check))
                             if config_value:
-                                config_value += " {0}".format(self.aug.get(check1))
+                                config_value += " {0}".format(self.aug.get(arg_check))
                             else:
-                                config_value = self.aug.get(check1)
+                                config_value = self.aug.get(arg_check)
                     else:
                         values.append(config_value)
 
+                    # check for config_name, if we don't then this a sub-group and not a directive
                     if not config_name:
+                        # this is a sub-group, recurse
                         sub_map = list()
                         vhost_map.append({'type': config_type, 'name': None, 'values': values, 'sub_group': sub_map})
                         self._create_map_from_vhost(path + "/" + config_type, sub_map, "{0}\t".format(text))
@@ -206,8 +210,7 @@ class BaseParser(object):
                 self.aug.set("{0}/{1}/arg".format(path, config_type), value)
 
             if not config_name and config_type and config_sub:
-                # this is a sub-group
-                # sub_groups = self.aug.match("{0}/{1}[last()]".format(path, config_type))
+                # this is a sub-group, recurse
                 sub_groups = self.aug.match("{0}/{1}".format(path, config_type))
                 for sub_group in sub_groups:
                     self._create_vhost_from_map(sub_group, config_sub, "{0}\t".format(text))
