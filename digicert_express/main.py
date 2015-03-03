@@ -27,6 +27,7 @@ def run():
     parser_a = subparsers.add_parser('restart_apache', help='restart apache')
     parser_a.set_defaults(func=restart_apache)
 
+
     parser_b = subparsers.add_parser('parse_apache', help='parse apache')
     parser_b.add_argument("--host", action="store",
                           help="I need a host to update")
@@ -46,6 +47,7 @@ def run():
     # parser_d = subparsers.add_parser('update_apache', help='update apache')
     # parser_d.set_defaults(func=update_apache)
 
+
     parser_e = subparsers.add_parser('download_cert',
                                      help='download certificate')
     parser_e.add_argument("--order_id", action="store",
@@ -57,12 +59,24 @@ def run():
                           help="Where should I store the cert?")
     parser_e.set_defaults(func=download_cert)
 
+
     parser_f = subparsers.add_parser('copy_cert', help='activate certificate')
     parser_f.add_argument("--cert_path", action="store",
                           help="Path to the cert")
     parser_f.add_argument("--apache_path", action="store",
                           help="Path to store the cert")
     parser_f.set_defaults(func=copy_cert)
+
+
+    parser_g = subparsers.add_parser("all", help='Download and Configure cert in one step')
+    parser_g.add_argument("--order_id", action="store",
+                          help="I need an order_id")
+    parser_g.add_argument("--api_key", action="store", help="I need an API Key")
+    parser_g.add_argument("--account_id", nargs="?", action="store",
+                          help="I need an account_id")
+    parser_g.add_argument("--file_path", action="store", default=os.getcwd(),
+                          help="Where should I store the cert?")
+    parser_g.set_defaults(func=do_everything)
 
     args = parser.parse_args()
     print args
@@ -116,6 +130,13 @@ def copy_cert(args):
     cert_path = args.cert_path
     apache_path = args.apache_path
     shutil.copyfile(cert_path, apache_path)
+
+
+def do_everything(args):
+    download_cert(args)
+    parse_apache(args)
+    copy_cert(args)
+    restart_apache(args)
 
 
 def determine_platform():
