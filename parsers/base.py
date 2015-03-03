@@ -266,30 +266,35 @@ class BaseParser(object):
         # verify that augeas can still load the changed file
         self.load_apache_configs()
 
-
-    def _format_config_file(self, host_file):
+    @staticmethod
+    def _format_config_file(host_file):
         try:
+            # get the lines of the config file
             lines = list()
             with open(host_file) as f:
                 lines = f.read().splitlines()
 
             f = open(host_file, 'w+')
 
-            tabs = ""
-            for line in lines:
-                line = line.lstrip()
-                if re.match("^<(\w+)", line):
-                    f.write("{0}{1}\n".format(tabs, line))
-                    tabs += "\t"
-                else:
-                    if re.match("^</(\w+)", line):
-                        if len(tabs) > 1:
-                            tabs = tabs[:-1]
-                        else:
-                            tabs = ""
-                    f.write("{0}{1}\n".format(tabs, line))
-
-            f.truncate()
-            f.close()
+            try:
+                tabs = ""
+                for line in lines:
+                    line = line.lstrip()
+                    # check for the beginning of a tag, if found increase the indentation after writing the tag
+                    if re.match("^<(\w+)", line):
+                        f.write("{0}{1}\n".format(tabs, line))
+                        tabs += "\t"
+                    else:
+                        # check for the end of a tag, if found decrease the indentation
+                        if re.match("^</(\w+)", line):
+                            if len(tabs) > 1:
+                                tabs = tabs[:-1]
+                            else:
+                                tabs = ""
+                        # write the config/tag
+                        f.write("{0}{1}\n".format(tabs, line))
+            finally:
+                f.truncate()
+                f.close()
         except Exception, e:
             raise Exception("The changes have been made but there was an error occurred while formatting your file:\n{0}".format(e.message))
