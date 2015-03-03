@@ -33,7 +33,7 @@ class BaseParser(object):
 
         if not aug:
             my_flags = augeas.Augeas.NONE | augeas.Augeas.NO_MODL_AUTOLOAD
-            aug = augeas.Augeas()  # flags=my_flags)
+            aug = augeas.Augeas(flags=my_flags)
         self.aug = aug
 
     @staticmethod
@@ -49,7 +49,8 @@ class BaseParser(object):
         try:
             self.aug.set("/augeas/load/Httpd/lens", "Httpd.lns")
             # FIXME this should be determined by the platform or webserver specific parsing settings and is norammly done automatically by augeas
-            # self.aug.set("/augeas/load/Httpd/incl", "/etc/apache2/")
+            self.aug.set("/augeas/load/Httpd/incl", "/etc/apache2/sites-available/*")
+
             self.aug.load()
             self.check_for_parsing_errors()
         except Exception, e:

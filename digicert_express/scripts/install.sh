@@ -35,8 +35,8 @@ check_architecture() {
     fi
     local myresult="x64"
     echo $MACHINE_TYPE
-}
 
+}
 
 
 # check for augeas packages
