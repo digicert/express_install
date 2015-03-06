@@ -6,8 +6,6 @@ import fnmatch
 import platform
 from collections import OrderedDict
 
-import traceback
-
 APACHE_SERVICES = {
     'LinuxMint': 'apache2',
     'CentOS': 'httpd',
@@ -32,9 +30,9 @@ class BaseParser(object):
         self.domain = domain
 
         # verify that the files exist and are readable by the user
-        _verify_file(cert_path)
-        _verify_file(key_path)
-        _verify_file(chain_path)
+        verify_file(cert_path)
+        verify_file(key_path)
+        verify_file(chain_path)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -373,7 +371,7 @@ class BaseParser(object):
                             "your file:\n{0}".format(e.message))
 
 
-def _verify_file(file_path):
+def verify_file(file_path):
     if not os.path.isfile(file_path):
         raise ParserException("{0} could not be found on the filesystem".format(file_path))
 
