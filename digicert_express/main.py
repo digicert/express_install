@@ -37,6 +37,9 @@ def run():
                           help="I need the path to the key for the configuration file")
     parser_b.add_argument("--chain", action="store",
                           help="I need the cert chain for the configuration file")
+    parser_b.add_argument("--apache_config", action="store", default=None,
+                          help="If you know the path your Virtual Host file or main Apache configuration file please "
+                               "include it here, if not we will try to find it for you")
     parser_b.set_defaults(func=parse_apache)
 
     # TODO: commenting out for now, these may not be necessary
@@ -97,7 +100,7 @@ def parse_apache(args):
     if args.host and args.cert and args.key and args.chain:
         try:
             apache_parser = BaseParser(args.host, args.cert, args.key, args.chain)
-            apache_parser.load_apache_configs()
+            apache_parser.load_apache_configs(args.apache_config)
             virtual_host = apache_parser.get_vhost_path_by_domain()
             apache_parser.set_certificate_directives(virtual_host)
         except Exception as e:

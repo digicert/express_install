@@ -2,7 +2,18 @@ import augeas
 import os
 import shutil
 import re
+import fnmatch
+import platform
 from collections import OrderedDict
+
+import traceback
+
+APACHE_SERVICES = {
+    'LinuxMint': 'apache2',
+    'CentOS': 'httpd',
+    'Debian': 'apache2',
+    'Ubuntu': 'apache2'
+}
 
 
 class ParserException(Exception):
@@ -21,9 +32,9 @@ class BaseParser(object):
         self.domain = domain
 
         # verify that the files exist and are readable by the user
-        self._verify_file(cert_path)
-        self._verify_file(key_path)
-        self._verify_file(chain_path)
+        _verify_file(cert_path)
+        _verify_file(key_path)
+        _verify_file(chain_path)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -36,27 +47,83 @@ class BaseParser(object):
             aug = augeas.Augeas(flags=my_flags)
         self.aug = aug
 
-    @staticmethod
-    def _verify_file(file_path):
-        if not os.path.isfile(file_path):
-            raise ParserException("{0} could not be found on the filesystem".format(file_path))
-
-        file_perm = int(oct(os.stat(file_path).st_mode)[-3:])
-        if file_perm != 755:
-            raise ParserException("{0} does not have the necessary permissions set (755 required, {1} set)".format(file_path, file_perm))
-
-    def load_apache_configs(self):
+    def load_apache_configs(self, apache_config_file=None):
         try:
-            self.aug.set("/augeas/load/Httpd/lens", "Httpd.lns")
-            # FIXME this should be determined by the platform or webserver specific parsing settings and is norammly done automatically by augeas
-            self.aug.set("/augeas/load/Httpd/incl", "/etc/apache2/sites-available/*")
+            if not apache_config_file:
+                apache_config_file = self._find_apache_config()
 
-            self.aug.load()
-            self.check_for_parsing_errors()
+            self.aug.set("/augeas/load/Httpd/lens", "Httpd.lns")
+            if apache_config_file:
+                self.aug.set("/augeas/load/Httpd/incl", apache_config_file)
+                self.aug.load()
+
+                # get all of the included configuration files and add them to augeas
+                self._load_included_files(apache_config_file)
+                self.check_for_parsing_errors()
+            else:
+                raise Exception("We could not find your main apache configuration file.  Please ensure that apache is "
+                                "running or include the path to your virtual host file in your command line arguments")
         except Exception, e:
             raise ParserException(
-                "An error occurred while loading the configuration for {0}.\n{1}".format(self.domain, e.message),
+                "An error occurred while loading your apache configuration.\n{1}".format(e.message),
                 self.directives)
+
+    @staticmethod
+    def _find_apache_config():
+        # FIXME this was stolen from main.py we should consider centralizing main.py's determine_platform() function
+        distro = platform.linux_distribution()
+        apache_command = "`which {0}` -V".format(APACHE_SERVICES.get(distro[0]))
+        apache_config = os.popen(apache_command).read()
+        if apache_config:
+            server_config_check = "SERVER_CONFIG_FILE="
+            httpd_root_check = "HTTPD_ROOT="
+
+            server_config_file = apache_config[apache_config.index(server_config_check) + len(server_config_check): -1]
+            server_config_file = server_config_file.replace('"', '')
+
+            if server_config_file[0] != "/":
+                # get the httpd root to find the server config file path
+                httpd_root_dir = apache_config[apache_config.index(httpd_root_check) + len(httpd_root_check): -1]
+                httpd_root_dir = httpd_root_dir[:httpd_root_dir.index("\n")]
+                httpd_root_dir = httpd_root_dir.replace('"', '')
+
+                if os.path.exists(httpd_root_dir) and os.path.isdir(httpd_root_dir):
+                    server_config_file = os.path.join(httpd_root_dir, server_config_file)
+
+            if os.path.exists(server_config_file):
+                return server_config_file
+
+    def _load_included_files(self, apache_config):
+        # get the augeas path to the config file
+        apache_config = "/files{0}".format(apache_config)
+
+        incl_regex = "({0})|({1})".format('Include', 'IncludeOptional')
+        includes = self.aug.match(("{0}//* [self::directive=~regexp('{1}')]/* [label()='arg']".format(apache_config, incl_regex)))
+
+        if includes:
+            for include in includes:
+                include_file = self.aug.get(include)
+
+                if include_file:
+                    if include_file[0] != "/":
+                        include_file = os.path.join(os.path.dirname(apache_config[6:]), include_file)
+
+                    if "*" not in include_file and include_file[-1] != "/":
+                        self.aug.set("/augeas/load/Httpd/incl [last()+1]", include_file)
+                        self.aug.load()
+                        self._load_included_files(include_file)
+                    else:
+                        if include_file[-1] == "/":
+                            include_file += "*"
+                        if "*" in include_file:
+                            config_dir = os.path.dirname(include_file)
+                            file_exp = include_file[include_file.index(config_dir) + len(config_dir) + 1:]
+                            for file in os.listdir(config_dir):
+                                if fnmatch.fnmatch(file, file_exp):
+                                    config_file = os.path.join(config_dir, file)
+                                    self.aug.set("/augeas/load/Httpd/incl [last()+1]", config_file)
+                                    self.aug.load()
+                                    self._load_included_files(config_file)
 
     def check_for_parsing_errors(self):
         errors = []
@@ -76,8 +143,9 @@ class BaseParser(object):
             raise Exception(error_msg)
 
     def get_vhost_path_by_domain(self):
-        matches = self.aug.match("/files/etc/apache2/sites-available/*")
-        for host_file in matches:
+        matches = self.aug.match("/augeas/load/Httpd/incl")
+        for match in matches:
+            host_file = "/files{0}".format(self.aug.get(match))
             if '~previous' not in host_file:
                 vhosts = self.aug.match(host_file + "/VirtualHost")
                 vhosts += self.aug.match(host_file + "/*/VirtualHost")
@@ -301,4 +369,15 @@ class BaseParser(object):
                 f.truncate()
                 f.close()
         except Exception, e:
-            raise Exception("The changes have been made but there was an error occurred while formatting your file:\n{0}".format(e.message))
+            raise Exception("The changes have been made but there was an error occurred while formatting "
+                            "your file:\n{0}".format(e.message))
+
+
+def _verify_file(file_path):
+    if not os.path.isfile(file_path):
+        raise ParserException("{0} could not be found on the filesystem".format(file_path))
+
+    file_perm = int(oct(os.stat(file_path).st_mode)[-3:])
+    if file_perm != 755:
+        raise ParserException("{0} does not have the necessary permissions set "
+                              "(755 required, {1} set)".format(file_path, file_perm))
