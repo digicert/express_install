@@ -10,7 +10,7 @@ APACHE_SERVICES = {
     'LinuxMint': 'apache2',
     'CentOS': 'httpd',
     'Debian': 'apache2',
-    'Ubuntu': 'apache2'
+    'Ubuntu': 'apache2ctl'
 }
 
 
