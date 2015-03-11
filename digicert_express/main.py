@@ -10,6 +10,7 @@ import socket
 import ssl
 import urllib
 import apt.cache
+import json
 
 from parsers.base import BaseParser
 from digicert_client import CertificateOrder
@@ -123,10 +124,13 @@ def download_cert(args):
         conn = HTTPSConnection(HOST)
         conn.request('POST', '/services/v2/key/temp', urllib.urlencode(params), headers)
         response = conn.getresponse()
-        print response
         if response.status == 200:
-            d = response.read()
-        api_key = d.get('api_key', '')
+            d = json.loads(response.read())
+            print d
+            api_key = d.get('api_key', '')
+        else:
+            print 'Unexpected response from server: %s' % response.reason
+            return
 
     if api_key:
         orderclient = CertificateOrder(HOST, api_key, customer_name=account_id)
