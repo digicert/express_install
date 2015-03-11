@@ -6,11 +6,12 @@ import fnmatch
 import platform
 from collections import OrderedDict
 
+# FIXME check these commands on each platform
 APACHE_SERVICES = {
     'LinuxMint': 'apache2',
     'CentOS': 'httpd',
     'Debian': 'apache2',
-    'Ubuntu': 'apache2'
+    'Ubuntu': 'apache2ctl'
 }
 
 
