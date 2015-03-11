@@ -31,15 +31,14 @@ APACHE_PROCESS_NAMES = {
 DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'python-augeas', 'openssl']
 DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'python-augeas', 'openssl']
 
-RH_DEPS = ['openssl', 'augeas-libs', 'augeas']
+RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip']
 
 HOST = 'localhost.digicert.com'
 
 
 def run():
     parser = argparse.ArgumentParser(
-        description='Express Install. Let DigiCert manage your certificates for you!',
-        version='1.0 First pass')
+        description='Express Install. Let DigiCert manage your certificates for you!', version='1.0 First pass')
 
     subparsers = parser.add_subparsers(help='Choose a command')
     parser_a = subparsers.add_parser('restart_apache', help='restart apache')
@@ -50,6 +49,10 @@ def run():
     parser_b.add_argument("--cert", action="store", help="I need the path to the cert for the configuration file")
     parser_b.add_argument("--chain", action="store", help="I need the cert chain for the configuration file")
     parser_b.set_defaults(func=parse_apache)
+
+    parser_c = subparsers.add_parser('dep_check', help="I'll check that you have all needed software and install it for you")
+    parser_c.set_defaults(func=check_for_deps)
+
 
     parser_e = subparsers.add_parser('download_cert', help='download certificate')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
@@ -81,7 +84,7 @@ def run():
 
 
 def restart_apache(args):
-    distro_name = determine_platform()
+    distro_name = _determine_platform()
     command = APACHE_COMMANDS.get(distro_name)
     print subprocess.call(command, shell=True)
 
@@ -140,7 +143,7 @@ def do_everything(args):
     restart_apache(args)
 
 
-def determine_platform():
+def _determine_platform():
     distro_name = platform.linux_distribution()  # returns a tuple ('', '', '') (distroName, version, code name)
     return distro_name[0]
 
@@ -175,7 +178,7 @@ def _check_for_site_openssl(domain):
     return site_status
 
 
-def check_for_deps():
+def check_for_deps(args):
     distro = platform.linux_distribution()
     if distro == 'CentOS':
         check_for_deps_centos()
