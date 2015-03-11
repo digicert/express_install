@@ -233,16 +233,6 @@ def check_for_deps_centos():
         pass
 
 
-def _check_for_site_openssl(domain):
-    # openssl s_client -connect jboards.net:443
-    process = os.popen("openssl s_client -connect %s:443 -showcerts < /dev/null" % domain).read()
-    print process
-    site_status = False
-    if 'CONNECTED' in process:
-        site_status = True
-    return site_status
-
-
 class VerifiedHTTPSConnection(HTTPSConnection):
     """
     VerifiedHTTPSConnection - an HTTPSConnection that performs name and server cert verification
