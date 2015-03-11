@@ -58,7 +58,7 @@ else
               echo "$pkg is not installed"
               echo "$pkg needs to be installed"
               echo "Should I install $pkg (y/n)"
-              read
+              read REPLY
               if "$REPLY" = "y"; then
                   apt-get -q install $pkg
                   echo "Successfully installed $pkg"
