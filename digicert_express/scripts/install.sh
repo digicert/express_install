@@ -19,7 +19,19 @@ echo $os
 
 
 # check for architecture 32 bit or 64 bit
-MACHINE_TYPE=`uname -m`
+check_architecture() {
+    MACHINE_TYPE=`uname -m`
+    if [ ${MACHINE_TYPE} == 'x86_64' ]; then
+        # 64-bit stuff here
+        MISC=$AUG_X64
+    else
+      # 32-bit stuff here
+        MISC=$AUG_X386
+    fi
+    local myresult="x64"
+    echo $MACHINE_TYPE
+
+}
 if [ ${MACHINE_TYPE} = "x86_64" ]
 then
     INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 python-augeas openssl python-pip"

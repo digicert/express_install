@@ -45,14 +45,21 @@ def run():
     parser_a.set_defaults(func=restart_apache)
 
     parser_b = subparsers.add_parser('parse_apache', help='parse apache')
-    parser_b.add_argument("--host", action="store", help="I need a host to update")
-    parser_b.add_argument("--cert", action="store", help="I need the path to the cert for the configuration file")
-    parser_b.add_argument("--chain", action="store", help="I need the cert chain for the configuration file")
+    parser_b.add_argument("--host", action="store",
+                          help="I need a host to update")
+    parser_b.add_argument("--cert", action="store",
+                          help="I need the path to the cert for the configuration file")
+    parser_b.add_argument("--key", action="store",
+                          help="I need the path to the key for the configuration file")
+    parser_b.add_argument("--chain", action="store",
+                          help="I need the cert chain for the configuration file")
+    parser_b.add_argument("--apache_config", action="store", default=None,
+                          help="If you know the path your Virtual Host file or main Apache configuration file please "
+                               "include it here, if not we will try to find it for you")
     parser_b.set_defaults(func=parse_apache)
 
     parser_c = subparsers.add_parser('dep_check', help="I'll check that you have all needed software and install it for you")
     parser_c.set_defaults(func=check_for_deps)
-
 
     parser_e = subparsers.add_parser('download_cert', help='download certificate')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
@@ -90,10 +97,11 @@ def restart_apache(args):
 
 
 def parse_apache(args):
-    if args.host and args.cert and args.chain:
+    print "my job is to parse the apache configuration file and store a backup and update the ssl config"
+    if args.host and args.cert and args.key and args.chain:
         try:
-            apache_parser = BaseParser(args.host, args.cert, args.chain)
-            apache_parser.load_apache_configs()
+            apache_parser = BaseParser(args.host, args.cert, args.key, args.chain)
+            apache_parser.load_apache_configs(args.apache_config)
             virtual_host = apache_parser.get_vhost_path_by_domain()
             apache_parser.set_certificate_directives(virtual_host)
         except Exception as e:
