@@ -42,10 +42,10 @@ then
         else
             echo "$package is not installed"
             echo "$package needs to be installed"
-            echo "Should I install $package (y/n)"
+            echo "Should I install $package? [y/n]"
             read REPLY
             if [ "$REPLY" = "y" ]; then
-                sudo yum -q install $package
+                sudo yum -q -y install $package
                 echo "Successfully installed $package"
             fi
         fi
@@ -57,10 +57,10 @@ else
           else
               echo "$pkg is not installed"
               echo "$pkg needs to be installed"
-              echo "Should I install $pkg (y/n)"
+              echo "Should I install $pkg? [y/n]"
               read REPLY
               if [ "$REPLY" = "y" ]; then
-                  apt-get -q install $pkg
+                  sudo apt-get -q -y install $pkg
                   echo "Successfully installed $pkg"
               fi
           fi
