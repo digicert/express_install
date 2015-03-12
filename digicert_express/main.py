@@ -1,7 +1,7 @@
 import os
 import argparse
 import subprocess
-from digicert_procure import CertificateOrder
+from digicert_client import CertificateOrder
 import platform
 import shutil
 from parsers.base import BaseParser
@@ -126,6 +126,56 @@ def download_cert(args):
     file = open(args.file_path + '/cert.crt', 'w')
     file.write(result_cert)
     print result_cert
+
+
+def get_order_info(args):
+    print "my job is to get the order info for the certificate from digicert.com using the digicert_client module with order_id %s and account_id %s" % (
+        args.order_id, args.account_id)
+    # call the V2 view order API
+    orderclient = CertificateOrder('www.digicert.com', args.api_key)
+    order_info = orderclient.view({'order_id': args.order_id})
+    if order_info:
+        if order_info['status'] and order_info['status'] == 'approved':
+            certificate = order_info['certificate']
+            if certificate:
+                server_name = certificate['common_name']
+                org_info = order_info['organization']
+
+                if org_info:
+                    create_csr(server_name, org_info['name'], org_info['city'], org_info['state'], org_info['country'])
+                else:
+                    raise Exception("ERROR: We could not find your organization's information "
+                                    "for order #{0}".format(args.order_id))
+            else:
+                raise Exception("ERROR: We could not find a certificate for order #{0}".format(args.order_id))
+        else:
+            raise Exception("ERROR: Order #{0} has not been approved.".format(args.order_id))
+    else:
+        raise Exception("ERROR: We could not find any information regarding order #{0}.".format(args.order_id))
+
+
+def create_csr(server_name, org, city, state, country, key_size=2048):
+    # remove http:// and https:// from server_name
+    server_name = server_name.lstrip("http://")
+    server_name = server_name.lstrip("https://")
+
+    # remove commas from org, state, & country
+    org = org.replace(",", "")
+    state = state.replace(",", "")
+    country = country.replace(",", "")
+
+    subj_string = "/C={0}/ST={1}/L={2}/O={3}/CN={5}".format(country, state, city, org, server_name)
+    csr_cmd = 'openssl req -new -newkey rsa:{0} -nodes -out {1}.csr -keyout {2}.key ' \
+              '-subj "{3}"'.format(key_size, server_name, server_name, subj_string)
+
+    # run the command
+    csr_output = os.popen(csr_cmd).read()
+
+    # verify the existence of the key and csr files
+    if not os.path.exists("{0}.key".format(server_name)) or not os.path.exists("{0}.csr".format(server_name)):
+        raise Exception("ERROR: An error occurred while attempting to create your CSR file.  Please try running {0} "
+                        "manually and re-run this application with the CSR file location "
+                        "as part of the arguments.".format(csr_cmd))
 
 
 def copy_cert(args):
