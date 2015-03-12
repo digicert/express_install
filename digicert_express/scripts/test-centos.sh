@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 !#/bin/bash
 
 AUG_X64="augeas-lenses augeas-tools libaugeas0 python-augeas"
