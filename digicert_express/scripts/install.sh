@@ -19,60 +19,48 @@ echo $os
 
 
 # check for architecture 32 bit or 64 bit
-check_architecture() {
-    MACHINE_TYPE=`uname -m`
-    if [ ${MACHINE_TYPE} == 'x86_64' ]; then
-        # 64-bit stuff here
-        MISC=$AUG_X64
-    else
-      # 32-bit stuff here
-        MISC=$AUG_X386
-    fi
-    local myresult="x64"
-    echo $MACHINE_TYPE
-
-}
-if [ ${MACHINE_TYPE} = "x86_64" ]
-then
-    INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 python-augeas openssl python-pip"
+MACHINE_TYPE=`uname -m`
+if [ ${MACHINE_TYPE} = "x86_64" ]; then
+    # 64-bit stuff here
+    INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 python-augeas openssl"
 else
-    INSTALL_PACKAGES="augeas-lenses augeas-tools:i386 libaugeas0:i386 python-augeas openssl python-pip"
+  # 32-bit stuff here
+    INSTALL_PACKAGES="augeas-lenses augeas-tools:i386 libaugeas0:i386 python-augeas openssl"
 fi
 
+
+echo ${INSTALL_PACKAGES}
+echo ${MACHINE_TYPE}
+echo ${os}
 
 
 if [[ $os == *"CentOS"* ]]
 then
     for package in "openssl augeas-libs augeas python-pip"; do
-        if yum list installed "$package" >/dev/null 2>&1
-        then
+        if yum list installed "$package" >/dev/null 2>&1; then
             echo "$package is already installed"
         else
             echo "$package is not installed"
             echo "$package needs to be installed"
-            echo "Should I install $package (y/n)"
+            echo "Should I install $package? [y/n]"
             read REPLY
-            if [ "$REPLY" = "y" ]
-            then
-                sudo yum -q install $package
+            if [ "$REPLY" = "y" ]; then
+                sudo yum -q -y install $package
                 echo "Successfully installed $package"
             fi
         fi
     done
 else
-    for pkg in $INSTALL_PACKAGES
-    do
-          if dpkg --get-selections | grep -q "^$pkg[[:space:]]*install$" >/dev/null
-          then
+    for pkg in $INSTALL_PACKAGES; do
+          if dpkg --get-selections | grep -q "^$pkg[[:space:]]*install$" >/dev/null; then
               echo "$pkg is already installed"
           else
               echo "$pkg is not installed"
               echo "$pkg needs to be installed"
-              echo "Should I install $pkg (y/n)"
-              read
-              if "$REPLY" = "y"
-              then
-                  apt-get -q install $pkg
+              echo "Should I install $pkg? [y/n]"
+              read REPLY
+              if [ "$REPLY" = "y" ]; then
+                  sudo apt-get -q -y install $pkg
                   echo "Successfully installed $pkg"
               fi
           fi
@@ -80,8 +68,7 @@ else
 fi
 
 # install digicert modules
-for package in $DIGICERT_PACKAGES
-do
+for package in $DIGICERT_PACKAGES; do
       sudo pip install $package
       echo "Successfully installed $package"
 done
