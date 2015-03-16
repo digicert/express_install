@@ -134,11 +134,12 @@ def download_cert(args):
     print "download cert from digicert.com with order_id %s and account_id %s" % (args.order_id, args.account_id)
     api_key = args.api_key
     account_id = args.account_id
-    if args.username:
+    if not api_key or args.username:
         api_key = get_temp_api_key()
 
     if api_key:
-        orderclient = CertificateOrder(HOST, api_key, customer_name=account_id)
+        # orderclient = CertificateOrder(HOST, api_key, customer_name=account_id)
+        orderclient = CertificateOrder(HOST, api_key)
         certificates = orderclient.download(digicert_order_id=args.order_id)
         result_cert = certificates.get('certificates').get('certificate')
         file = open(args.file_path + '/cert.crt', 'w')
@@ -153,7 +154,7 @@ def get_order_info(args):
     api_key = args.api_key
     order_id = args.order_id
 
-    if args.username or not api_key:
+    if not api_key or args.username:
         api_key = get_temp_api_key()
 
     if api_key:
