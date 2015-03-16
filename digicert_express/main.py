@@ -25,8 +25,8 @@ APACHE_PROCESS_NAMES = {
     'Ubuntu': 'apache2'
 }
 
-DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'python-augeas', 'openssl']
-DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'python-augeas', 'openssl']
+DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'python-augeas', 'openssl', 'python-pip']
+DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'python-augeas', 'openssl', 'python-pip']
 
 RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip']
 
@@ -34,22 +34,18 @@ HOST = 'localhost.digicert.com'
 
 
 def run():
-    parser = argparse.ArgumentParser(
-        description='Express Install. Let DigiCert manage your certificates for you!', version='1.0 First pass')
+    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0')
 
     subparsers = parser.add_subparsers(help='Choose a command')
     parser_a = subparsers.add_parser('restart_apache', help='restart apache')
+    parser_a.add_argument("--domain", action="store", nargs="?", help="I'll verify the domain is running after the restart")
     parser_a.set_defaults(func=restart_apache)
 
-    parser_b = subparsers.add_parser('parse_apache', help='parse apache')
-    parser_b.add_argument("--host", action="store",
-                          help="I need a host to update")
-    parser_b.add_argument("--cert", action="store",
-                          help="I need the path to the cert for the configuration file")
-    parser_b.add_argument("--key", action="store",
-                          help="I need the path to the key for the configuration file")
-    parser_b.add_argument("--chain", action="store",
-                          help="I need the cert chain for the configuration file")
+    parser_b = subparsers.add_parser('parse_apache', help='Parse apache configuration file')
+    parser_b.add_argument("--host", action="store", help="I need a host to update")
+    parser_b.add_argument("--cert", action="store", help="I need the path to the cert for the configuration file")
+    parser_b.add_argument("--key", action="store", help="I need the path to the key for the configuration file")
+    parser_b.add_argument("--chain", action="store", help="I need the cert chain for the configuration file")
     parser_b.add_argument("--apache_config", action="store", default=None,
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
@@ -62,8 +58,7 @@ def run():
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
     parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
-    parser_e.add_argument("--username", action="store_true", help="Your DigiCert username")
-    parser_e.add_argument("--file_path", action="store", default=os.getcwd(), help="Where should I store the cert?")
+    parser_e.add_argument("--file_path", action="store", default=os.getcwd(), help="File path should I store the cert? File will be named cert.crt")
     parser_e.set_defaults(func=download_cert)
 
     parser_f = subparsers.add_parser('copy_cert', help='activate certificate')
@@ -81,8 +76,6 @@ def run():
     args = parser.parse_args()
     print args
 
-    # TODO: if download and api key but not key passed in, throw error
-
     args.func(args)
     print 'finished!'
 
@@ -91,6 +84,19 @@ def restart_apache(args):
     distro_name = _determine_platform()
     command = APACHE_COMMANDS.get(distro_name)
     print subprocess.call(command, shell=True)
+    # TODO: receive domain in args
+    if args.domain:
+        import time
+        print 'waiting for apache process...'
+        time.sleep(4)
+        # TODO: add check for apache process and check that is ssl methods here
+        apache_process_result = _check_for_apache_process(distro_name)
+        site_result = _check_for_site_availability(args.domain)
+        ssl_result = _check_for_site_openssl(args.domain)
+
+        if not apache_process_result or not site_result or not ssl_result:
+            print "An error occurred starting apache.  Please restore your previous configuration file"
+
 
 
 def parse_apache(args):
@@ -108,7 +114,9 @@ def parse_apache(args):
 def download_cert(args):
     print "download cert from digicert.com with order_id %s and account_id %s" % (args.order_id, args.account_id)
     api_key = args.api_key
-    if args.username and not api_key:
+    account_id = args.account_id
+
+    if not api_key:
         # prompt for username and password,
         username = raw_input("DigiCert Username: ")
         password = getpass.getpass("DigiCert Password: ")
@@ -117,15 +125,14 @@ def download_cert(args):
         if result['http_status'] >= 300:
             print 'Download failed:  %d - %s' % (result['http_status'], result['http_reason'])
             return
-
         try:
             api_key = result['api_key']
         except KeyError:
             api_key = None
 
     if api_key:
-        orderclient = CertificateOrder(HOST, api_key, customer_name=args.account_id)
-        certificates = orderclient.download(digicert_order_id=args.order_id)
+        order_client = CertificateOrder(HOST, api_key, customer_name=account_id)
+        certificates = order_client.download(digicert_order_id=args.order_id)
         result_cert = certificates.get('certificates').get('certificate')
         file = open(args.file_path + '/cert.crt', 'w')
         file.write(result_cert)
