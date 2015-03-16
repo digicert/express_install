@@ -109,28 +109,33 @@ def parse_apache(args):
             print e.message
 
 
+def get_temp_api_key():
+    # prompt for username and password,
+    username = raw_input("DigiCert Username: ")
+    password = getpass.getpass("DigiCert Password: ")
+
+    # call /key/temp to get a temp key, then cert order
+    params = {'username': username, 'password': password}
+    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
+    conn = HTTPSConnection(HOST)
+    conn.request('POST', '/services/v2/authentication/login', urllib.urlencode(params), headers)
+    response = conn.getresponse()
+    if response.status == 200:
+        d = json.loads(response.read())
+        print d
+        api_key = d.get('api_key', '')
+        return api_key
+    else:
+        print 'Unexpected response from server: %s' % response.reason
+        return
+
+
 def download_cert(args):
     print "download cert from digicert.com with order_id %s and account_id %s" % (args.order_id, args.account_id)
     api_key = args.api_key
     account_id = args.account_id
     if args.username:
-        # prompt for username and password,
-        username = raw_input("DigiCert Username: ")
-        password = getpass.getpass("DigiCert Password: ")
-
-        # call /key/temp to get a temp key, then cert order
-        params = {'username': username, 'password': password}
-        headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
-        conn = HTTPSConnection(HOST)
-        conn.request('POST', '/services/v2/key/temp', urllib.urlencode(params), headers)
-        response = conn.getresponse()
-        if response.status == 200:
-            d = json.loads(response.read())
-            print d
-            api_key = d.get('api_key', '')
-        else:
-            print 'Unexpected response from server: %s' % response.reason
-            return
+        api_key = get_temp_api_key()
 
     if api_key:
         orderclient = CertificateOrder(HOST, api_key, customer_name=account_id)
@@ -143,29 +148,37 @@ def download_cert(args):
 
 
 def get_order_info(args):
-    print "my job is to get the order info for the certificate from digicert.com using the digicert_client module with order_id %s and account_id %s" % (
-        args.order_id, args.account_id)
-    # call the V2 view order API
-    orderclient = CertificateOrder('www.digicert.com', args.api_key)
-    order_info = orderclient.view({'order_id': args.order_id})
-    if order_info:
-        if order_info['status'] and order_info['status'] == 'approved':
-            certificate = order_info['certificate']
-            if certificate:
-                server_name = certificate['common_name']
-                org_info = order_info['organization']
+    print "my job is to get the order info for the certificate from digicert.com using the digicert_client module " \
+          "with order_id %s and account_id %s" % (args.order_id, args.account_id)
+    api_key = args.api_key
+    order_id = args.order_id
 
-                if org_info:
-                    create_csr(server_name, org_info['name'], org_info['city'], org_info['state'], org_info['country'])
+    if args.username or not api_key:
+        api_key = get_temp_api_key()
+
+    if api_key:
+        # call the V2 view order API
+        orderclient = CertificateOrder(HOST, api_key)
+        order_info = orderclient.view(digicert_order_id=order_id)
+        if order_info:
+            print order_info['status']
+            if order_info['status'] and order_info['status'] == 'issued':
+                certificate = order_info['certificate']
+                if certificate:
+                    server_name = certificate['common_name']
+                    org_info = order_info['organization']
+
+                    if org_info:
+                        create_csr(server_name, org_info['name'], org_info['city'], org_info['state'], org_info['country'])
+                    else:
+                        raise Exception("ERROR: We could not find your organization's information "
+                                        "for order #{0}".format(order_id))
                 else:
-                    raise Exception("ERROR: We could not find your organization's information "
-                                    "for order #{0}".format(args.order_id))
+                    raise Exception("ERROR: We could not find a certificate for order #{0}".format(order_id))
             else:
-                raise Exception("ERROR: We could not find a certificate for order #{0}".format(args.order_id))
+                raise Exception("ERROR: Order #{0} has not been issued.".format(order_id))
         else:
-            raise Exception("ERROR: Order #{0} has not been approved.".format(args.order_id))
-    else:
-        raise Exception("ERROR: We could not find any information regarding order #{0}.".format(args.order_id))
+            raise Exception("ERROR: We could not find any information regarding order #{0}.".format(order_id))
 
 
 def create_csr(server_name, org, city, state, country, key_size=2048):
