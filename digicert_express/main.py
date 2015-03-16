@@ -5,12 +5,11 @@ import platform
 import shutil
 import getpass
 from httplib import HTTPSConnection
-import urllib
 import apt.cache
-import json
 
 from parsers.base import BaseParser
-from digicert_client import CertificateOrder, VerifiedHTTPSConnection
+from cqrs import LoginCommand
+from digicert_client import CertificateOrder, Request
 
 APACHE_COMMANDS = {
     'LinuxMint': 'sudo service apache2 restart',
@@ -109,35 +108,30 @@ def parse_apache(args):
 def download_cert(args):
     print "download cert from digicert.com with order_id %s and account_id %s" % (args.order_id, args.account_id)
     api_key = args.api_key
-    account_id = args.account_id
-    if args.username:
+    if args.username and not api_key:
         # prompt for username and password,
         username = raw_input("DigiCert Username: ")
         password = getpass.getpass("DigiCert Password: ")
 
-        # call /authentication/login to get a temp key, then cert order
-        params = {'username': username, 'password': password}
-        headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
-
-        # Ensure we use VerifiedHTTPSConnection here, which performs peer verification.
-        conn = VerifiedHTTPSConnection(HOST)
-        conn.request('POST', '/services/v2/authentication/login', urllib.urlencode(params), headers)
-        response = conn.getresponse()
-        if response.status == 200:
-            d = json.loads(response.read())
-            api_key = d.get('api_key', '')
-        else:
-            print 'Unexpected response from server: %s' % response.reason
+        result = Request(action=LoginCommand(username, password), host=HOST).send()
+        if result['http_status'] >= 300:
+            print 'Download failed:  %d - %s' % (result['http_status'], result['http_reason'])
             return
 
+        try:
+            api_key = result['api_key']
+        except KeyError:
+            api_key = None
+
     if api_key:
-        orderclient = CertificateOrder(HOST, api_key, customer_name=account_id)
+        orderclient = CertificateOrder(HOST, api_key, customer_name=args.account_id)
         certificates = orderclient.download(digicert_order_id=args.order_id)
         result_cert = certificates.get('certificates').get('certificate')
         file = open(args.file_path + '/cert.crt', 'w')
         file.write(result_cert)
-
-    print result_cert
+        print result_cert
+    else:
+        print 'Username or API Key required to download certificate.'
 
 
 def copy_cert(args):
