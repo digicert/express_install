@@ -6,6 +6,8 @@ import shutil
 import getpass
 from httplib import HTTPSConnection
 import apt.cache
+import urllib
+import json
 
 from parsers.base import BaseParser
 from cqrs import LoginCommand
