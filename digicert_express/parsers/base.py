@@ -353,9 +353,9 @@ def verify_file(file_path):
         raise ParserException("{0} could not be found on the filesystem".format(file_path))
 
     file_perm = int(oct(os.stat(file_path).st_mode)[-3:])
-    if file_perm != 755:
-        raise ParserException("{0} does not have the necessary permissions set "
-                              "(755 required, {1} set)".format(file_path, file_perm))
+    # if file_perm != 755:
+    #     raise ParserException("{0} does not have the necessary permissions set "
+    #                           "(755 required, {1} set)".format(file_path, file_perm))
 
 def get_path_to_file(path):
     """
