@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 echo
 echo "DigiCert Express Install bootstrapper"
@@ -40,7 +40,7 @@ then
         if yum list installed "$package" >/dev/null 2>&1; then
             echo "Prerequisite package $package is already installed."
         else
-            INSTALL_PACKAGES="$package "
+            INSTALL_PACKAGES="$INSTALL_PACKAGES $package"
             install_cmd="yum"
         fi
     done
@@ -49,7 +49,7 @@ else
         if dpkg --get-selections | grep -q "^$package[[:space:]]*install$" >/dev/null; then
             echo "Prerequisite package $package is already installed."
         else
-            INSTALL_PACKAGES+="$package "
+            INSTALL_PACKAGES="$INSTALL_PACKAGES $package"
             install_cmd="apt-get"
         fi
     done
@@ -61,7 +61,7 @@ for package in $CHECK_PYTHON_PACKAGES; do
     if [ "$installed_package" = "$package" ]; then
         echo "Prerequisite Python package $package is already installed."
     else
-        PYTHON_PACKAGES+="$package "
+        PYTHON_PACKAGES="$PYTHON_PACKAGES $package"
     fi
 done
 
