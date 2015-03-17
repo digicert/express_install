@@ -133,6 +133,9 @@ def download_cert(args):
     if api_key:
         order_client = CertificateOrder(HOST, api_key, customer_name=account_id)
         certificates = order_client.download(digicert_order_id=args.order_id)
+        if certificates['http_status'] >= 300:
+            print 'Unable to download certificate:  %d - %s' % (certificates['http_status'], certificates['http_reason'])
+            return
         result_cert = certificates.get('certificates').get('certificate')
         file = open(args.file_path + '/cert.crt', 'w')
         file.write(result_cert)
