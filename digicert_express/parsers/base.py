@@ -30,10 +30,15 @@ class BaseParser(object):
     def __init__(self, domain, cert_path, key_path, chain_path, aug=None):
         self.domain = domain
 
+        # get the apache service user
+        command = "ps aux | egrep '(apache2|httpd)' | grep -v `whoami` | grep -v root | head -n1 | awk '{print $1}'"
+        apache_user = os.popen(command).read()
+        apache_user = apache_user.strip()
+
         # verify that the files exist and are readable by the user
-        verify_file(cert_path)
-        verify_file(key_path)
-        verify_file(chain_path)
+        verify_file(cert_path, apache_user)
+        verify_file(key_path, apache_user)
+        verify_file(chain_path, apache_user)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -341,18 +346,25 @@ class BaseParser(object):
         self.aug.load()
 
 
-def verify_file(file_path):
+def verify_file(file_path, apache_user):
     """
     Verify that the file exists and the user has the necessary permissions to this file
 
     :param file_path
+    :paran apache_user
     :return:
     """
 
     if not os.path.isfile(file_path):
         raise ParserException("{0} could not be found on the filesystem".format(file_path))
 
-    file_perm = int(oct(os.stat(file_path).st_mode)[-3:])
+    # change the owners of the ssl files
+    os.system("chown root:{0} {1}".format(apache_user, file_path))
+
+    # change the permission of the ssl files, only the root and apache users should have read permissions
+    os.system("chmod 640 {0}".format(file_path))
+
+    # file_perm = int(oct(os.stat(file_path).st_mode)[-3:])
     # if file_perm != 755:
     #     raise ParserException("{0} does not have the necessary permissions set "
     #                           "(755 required, {1} set)".format(file_path, file_perm))
