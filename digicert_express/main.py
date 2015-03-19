@@ -71,11 +71,12 @@ def run():
     parser_f.set_defaults(func=copy_cert)
 
     parser_g = subparsers.add_parser("all", help='Download and Configure cert in one step')
-    parser_g.add_argument("--order_id", action="store", help="I need an order_id")
-    parser_g.add_argument("--api_key", action="store", help="I need an API Key")
-    parser_g.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
-    parser_g.add_argument("--file_path", action="store", default=os.getcwd(), help="Where should I store the cert?")
+    parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
     parser_g.add_argument("--key", action="store", help="I need the path to the key file if you already have submitted the csr for your domain")
+    parser_g.add_argument("--file_path", action="store", default=os.getcwd(), help="Where should I store the cert?")
+    parser_g.add_argument("--api_key", action="store", help="I need an API Key")
+    parser_g.add_argument("--order_id", action="store", help="I need an order_id")
+    parser_g.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
     parser_g.set_defaults(func=do_everything)
 
     args = parser.parse_args()
@@ -150,11 +151,11 @@ def download_cert(args):
     _download_cert(args.order_id, args.account_id, args.file_path)
 
 
-def _download_cert(order_id, account_id=None, file_path=None, username=None):
+def _download_cert(order_id, account_id=None, file_path=None, domain=None):
     print "download cert from digicert.com with order_id %s" % order_id
     global API_KEY
 
-    if not API_KEY or username:
+    if not API_KEY:
         API_KEY = _get_temp_api_key()
 
     if API_KEY:
@@ -163,17 +164,26 @@ def _download_cert(order_id, account_id=None, file_path=None, username=None):
         else:
             orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
+
+        cert_file_path = os.path.join(file_path, 'cert.crt')
+        if domain:
+            cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
+
+        chain_file_path = os.path.join(file_path, 'chain.crt')
+        if domain:
+            chain_file_path = os.path.join(file_path, '{0}_chain.crt'.format(domain.replace(".", "_")))
+
         cert = certificates.get('certificates').get('certificate')
-        cert_file = open(os.path.join(file_path, 'cert.crt'), 'w')
+        cert_file = open(cert_file_path, 'w')
         cert_file.write(cert)
         cert_file.close()
 
         chain = certificates.get('certificates').get('intermediate')
-        chain_file = open(os.path.join(file_path, 'chain.crt'), 'w')
+        chain_file = open(chain_file_path, 'w')
         chain_file.write(chain)
         chain_file.close()
 
-        return {'cert': os.path.join(file_path, 'cert.crt'), 'chain': os.path.join(file_path, 'chain.crt')}
+        return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
         print 'Username or API Key required to download certificate.'
 
@@ -184,7 +194,7 @@ def create_csr_from_order(args):
     API_KEY = args.api_key
     order_id = args.order_id
 
-    order_info = _get_order_info(API_KEY, order_id, args.username)
+    order_info = _get_order_info(API_KEY, order_id)
     if order_info['status'] and order_info['status'] == 'issued':
         certificate = order_info['certificate']
         if certificate:
@@ -202,12 +212,12 @@ def create_csr_from_order(args):
         raise Exception("ERROR: Order #{0} has not been issued.".format(order_id))
 
 
-def _get_order_info(order_id, username=None):
+def _get_order_info(order_id):
     global API_KEY
     print "my job is to get the order info for the certificate from digicert.com using the digicert_client module " \
           "with order_id %s" % order_id
 
-    if not API_KEY or username:
+    if not API_KEY:
         API_KEY = _get_temp_api_key()
 
     if API_KEY:
@@ -218,6 +228,31 @@ def _get_order_info(order_id, username=None):
             return order_info
         else:
             raise Exception("ERROR: We could not find any information regarding order #{0}.".format(order_id))
+
+
+def _get_order_by_domain(domain):
+    global API_KEY
+    print "my job is to get the order info for the certificate from digicert.com using the digicert_client module " \
+          "with order_id %s" % domain
+
+    if not API_KEY:
+        API_KEY = _get_temp_api_key()
+
+    if API_KEY:
+        # call the V2 view order API
+        orderclient = CertificateOrder(HOST, API_KEY)
+        all_orders = orderclient.view_all()
+        if all_orders:
+            orders = all_orders['orders']
+            for order in orders:
+                if order['status'] == 'issued':
+                    cert = order['certificate']
+                    if cert:
+                        if cert['common_name'] == domain:
+                            return order['id']
+        else:
+            raise Exception("ERROR: We could not find any orders for your account.")
+        return
 
 
 def _create_csr(server_name, org, city, state, country, key_size=2048):
@@ -243,7 +278,6 @@ def _create_csr(server_name, org, city, state, country, key_size=2048):
                         "manually and re-run this application with the CSR file location "
                         "as part of the arguments.".format(csr_cmd))
 
-
 def copy_cert(args):
     _copy_cert(args.cert_path, args.apache_path)
 
@@ -256,23 +290,33 @@ def do_everything(args):
     global API_KEY
     API_KEY = args.api_key
     order_id = args.order_id
+    domain = args.domain
 
-    certs = _download_cert(order_id, args.account_id, args.file_path)
-    order_info = _get_order_info(order_id)
-    certificate = order_info['certificate']
-    if certificate:
-        domain = certificate['common_name']
-        key = args.key
-        if key:
-            chain = certs['chain']
-            cert = certs['cert']
+    if not order_id and domain:
+        order_id = _get_order_by_domain(domain)
 
-            _parse_apache(domain, cert, key, chain)
-            # _copy_cert(cert_path, apache_path)
-            _restart_apache(domain)
-        else:
-            # FIXME is this where we do the csr for them?
-            pass
+    if order_id:
+        certs = _download_cert(order_id, args.account_id, args.file_path, domain)
+        order_info = _get_order_info(order_id)
+        certificate = order_info['certificate']
+        if certificate:
+            if not domain:
+                domain = certificate['common_name']
+            key = args.key
+            if key:
+                chain = certs['chain']
+                cert = certs['cert']
+
+                _parse_apache(domain, cert, key, chain)
+                # _copy_cert(cert_path, apache_path)
+                # FIXME this is temporary
+                os.system("a2enmod ssl")
+                _restart_apache(domain)
+            else:
+                # FIXME is this where we do the csr for them?
+                pass
+    else:
+        print "ERROR: You must specify a valid domain or order id"
 
     # download_cert(args)
     # parse_apache(args)
@@ -309,7 +353,7 @@ def _check_for_site_availability(domain):
 
 def _check_for_site_openssl(domain):
     # openssl s_client -connect jboards.net:443
-    process = os.popen("openssl s_client -connect %s:443 %s" % domain).read().splitlines()
+    process = os.popen("openssl s_client -connect %s:443" % domain).read().splitlines()
     site_status = False
     if 'CONNECTED' in process:
         site_status = True
