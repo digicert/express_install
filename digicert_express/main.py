@@ -129,20 +129,16 @@ def _get_temp_api_key():
     username = raw_input("DigiCert Username: ")
     password = getpass.getpass("DigiCert Password: ")
 
-    # call /key/temp to get a temp key, then cert order
-    params = {'username': username, 'password': password}
-    headers = {'Content-type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
-    conn = HTTPSConnection(HOST)
-    conn.request('POST', '/services/v2/authentication/login', urllib.urlencode(params), headers)
-    response = conn.getresponse()
-    if response.status == 200:
-        d = json.loads(response.read())
-        print d
-        api_key = d.get('api_key', '')
-        return api_key
-    else:
-        print 'Unexpected response from server: %s' % response.reason
+    result = Request(action=LoginCommand(username, password), host=HOST).send()
+    if result['http_status'] >= 300:
+        print 'Download failed:  %d - %s' % (result['http_status'], result['http_reason'])
         return
+    try:
+        api_key = result['api_key']
+        return api_key
+    except KeyError:
+        api_key = None
+    return
 
 
 def download_cert(args):
