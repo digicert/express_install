@@ -165,9 +165,9 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
         if domain:
             cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
 
-        chain_file_path = os.path.join(file_path, 'chain.crt')
+        chain_file_path = os.path.join(file_path, 'chain.pem')
         if domain:
-            chain_file_path = os.path.join(file_path, '{0}_chain.crt'.format(domain.replace(".", "_")))
+            chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
 
         cert = certificates.get('certificates').get('certificate')
         cert_file = open(cert_file_path, 'w')
@@ -235,7 +235,7 @@ def _get_order_by_domain(domain):
         API_KEY = _get_temp_api_key()
 
     if API_KEY:
-        # call the V2 view order API
+        # call the V2 view orders API
         orderclient = CertificateOrder(HOST, API_KEY)
         all_orders = orderclient.view_all()
         if all_orders:
@@ -244,7 +244,13 @@ def _get_order_by_domain(domain):
                 if order['status'] == 'issued':
                     cert = order['certificate']
                     if cert:
-                        if cert['common_name'] == domain:
+                        # match the domain name to the common name on the order
+                        common_name = cert['common_name']
+                        if common_name == domain:
+                            return order['id']
+
+                        # if not a direct match, look for a wildcard match
+                        if "*." in common_name and common_name.replace("*.", "").strip() in domain:
                             return order['id']
         else:
             raise Exception("ERROR: We could not find any orders for your account.")
@@ -292,32 +298,32 @@ def do_everything(args):
         order_id = _get_order_by_domain(domain)
 
     if order_id:
-        certs = _download_cert(order_id, args.account_id, args.file_path, domain)
-        order_info = _get_order_info(order_id)
-        certificate = order_info['certificate']
-        if certificate:
-            if not domain:
+        # get the order info if the domain was not passed in the args
+        if not domain:
+            order_info = _get_order_info(order_id)
+            certificate = order_info['certificate']
+            if certificate:
                 domain = certificate['common_name']
-            key = args.key
-            if key:
-                chain = certs['chain']
-                cert = certs['cert']
 
-                _parse_apache(domain, cert, key, chain)
-                # _copy_cert(cert_path, apache_path)
-                # FIXME this is temporary
-                os.system("a2enmod ssl")
-                _restart_apache(domain)
-            else:
-                # FIXME is this where we do the csr for them?
-                pass
+        certs = _download_cert(order_id, args.account_id, args.file_path, domain)
+        key = args.key
+        if key:
+            chain = certs['chain']
+            cert = certs['cert']
+
+            # make the changes to apache
+            _parse_apache(domain, cert, key, chain)
+
+            # FIXME do we need to copy the cert in this scenario?
+            # _copy_cert(cert_path, apache_path)
+            # FIXME this is temporary
+            os.system("a2enmod ssl")
+            _restart_apache(domain)
+        else:
+            # FIXME is this where we do the csr for them?
+            pass
     else:
         print "ERROR: You must specify a valid domain or order id"
-
-    # download_cert(args)
-    # parse_apache(args)
-    # copy_cert(args)
-    # restart_apache(args)
 
 
 def _determine_platform():
