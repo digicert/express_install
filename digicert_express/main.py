@@ -226,35 +226,58 @@ def _get_order_info(order_id):
             raise Exception("ERROR: We could not find any information regarding order #{0}.".format(order_id))
 
 
-def _get_order_by_domain(domain):
+def _get_valid_orders():
     global API_KEY
-    print "my job is to get the order info for the certificate from digicert.com using the digicert_client module " \
-          "with order_id %s" % domain
 
     if not API_KEY:
         API_KEY = _get_temp_api_key()
 
     if API_KEY:
         # call the V2 view orders API
+        orders = list()
         orderclient = CertificateOrder(HOST, API_KEY)
         all_orders = orderclient.view_all()
         if all_orders:
-            orders = all_orders['orders']
-            for order in orders:
+            orders = list()
+            for order in all_orders['orders']:
                 if order['status'] == 'issued':
                     cert = order['certificate']
                     if cert:
-                        # match the domain name to the common name on the order
-                        common_name = cert['common_name']
-                        if common_name == domain:
-                            return order['id']
-
-                        # if not a direct match, look for a wildcard match
-                        if "*." in common_name and common_name.replace("*.", "").strip() in domain:
-                            return order['id']
+                        orders.append(order)
+            return orders
         else:
             raise Exception("ERROR: We could not find any orders for your account.")
         return
+
+
+def _get_order_by_domain(domain):
+    orders = _get_valid_orders()
+    for order in orders:
+        cert = order['certificate']
+
+        # match the domain name to the common name on the order
+        common_name = cert['common_name']
+        if common_name == domain:
+            return order['id']
+
+        # if not a direct match, look for a wildcard match
+        if "*." in common_name and common_name.replace("*.", "").strip() in domain:
+            return order['id']
+
+
+def _select_from_orders():
+        orders = _get_valid_orders()
+
+        i = 1
+        for order in orders:
+            print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+            i += 1
+
+        resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
+        selection = int(resp) - 1
+
+        print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
+        return orders[selection]
 
 
 def _create_csr(server_name, org, city, state, country, key_size=2048):
@@ -293,6 +316,11 @@ def do_everything(args):
     API_KEY = args.api_key
     order_id = args.order_id
     domain = args.domain
+
+    if not order_id and not domain:
+        order = _select_from_orders()
+        order_id = order['id']
+        domain = order['certificate']['common_name']
 
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
