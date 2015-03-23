@@ -5,7 +5,7 @@ echo "DigiCert Express Install bootstrapper"
 echo
 
 CHECK_INSTALL_PACKAGES=""
-CHECK_PYTHON_PACKAGES="digicert-client express-install"
+CHECK_PYTHON_PACKAGES="digicert-client digicert-express"
 
 
 # check for distribution, debian, centos, ubuntu
@@ -83,7 +83,7 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
             fi
         fi
         if ! [ "$PYTHON_PACKAGES" = "" ]; then 
-            sudo pip install $PYTHON_PACKAGES
+            sudo pip install --pre $PYTHON_PACKAGES
             if [ $? -ne 0 ]; then
                 echo "Installation of package $package failed - aborting."
                 exit
