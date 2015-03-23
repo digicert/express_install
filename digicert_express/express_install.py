@@ -193,14 +193,15 @@ def _download_cert(order_id, file_path=None, domain=None):
         #     orderclient = CertificateOrder(HOST, API_KEY)
         orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
-        certificates = certificates.get('certificates')
-        if not certificates:
-            raise Exception("Failed to get certificates from order ".format(order_id))
 
         if '-----' not in certificates: # then we know this is a zip file containing all certs
             zip_file = ZipFile(StringIO(certificates))
             zip_file.extractall(file_path)
             return
+
+        certificates = certificates.get('certificates')
+        if not certificates:
+            raise Exception("Failed to get certificates from order ".format(order_id))
 
         cert_file_path = os.path.join(file_path, 'cert.crt')
 
