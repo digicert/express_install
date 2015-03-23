@@ -5,7 +5,7 @@ echo "DigiCert Express Install bootstrapper"
 echo
 
 CHECK_INSTALL_PACKAGES=""
-CHECK_PYTHON_PACKAGES="digicert-client express-install"
+CHECK_PYTHON_PACKAGES="digicert-client digicert-express"
 
 
 # check for distribution, debian, centos, ubuntu
