@@ -80,7 +80,6 @@ def run():
     args = parser.parse_args()
     try:
         args.func(args)
-        print 'finished!'
     except Exception, e:
         print e.message + "\n"
 
