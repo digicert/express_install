@@ -39,39 +39,45 @@ def run():
                                      version='1.0')
 
     subparsers = parser.add_subparsers(help='Choose a command')
-    parser_a = subparsers.add_parser('restart_apache', help='restart apache')
-    parser_a.add_argument("--domain", action="store", nargs="?", help="I'll verify the domain is running after the restart")
+    parser_a = subparsers.add_parser('restart_apache', help='Restart apache and verify SSL configuration')
+    parser_a.add_argument("--domain", action="store", nargs="?",
+                          help="I'll verify the domain is running after the restart")
     parser_a.set_defaults(func=restart_apache)
 
-    parser_b = subparsers.add_parser('parse_apache', help='Parse apache configuration file')
-    parser_b.add_argument("--host", action="store", help="I need a host to update")
-    parser_b.add_argument("--cert", action="store", help="I need the path to the cert for the configuration file")
-    parser_b.add_argument("--key", action="store", help="I need the path to the key for the configuration file")
-    parser_b.add_argument("--chain", action="store", help="I need the cert chain for the configuration file")
+    parser_b = subparsers.add_parser('parse_apache', help='Parse and update apache configuration with SSL settings')
+    parser_b.add_argument("--domain", action="store", help="I need a domain/host to update")
+    parser_b.add_argument("--cert", action="store", help="I need the path to the certificate")
+    parser_b.add_argument("--key", action="store", help="I need the path to the key")
+    parser_b.add_argument("--chain", action="store",
+                          help="I need the path to the certificate chain (intermediate)")
     parser_b.add_argument("--apache_config", action="store", default=None,
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
     parser_b.set_defaults(func=parse_apache)
 
-    parser_c = subparsers.add_parser('dep_check', help="I'll check that you have all needed software and install it for you")
+    parser_c = subparsers.add_parser('dep_check',
+                                     help="I'll check that you have all needed software and install it for you")
     parser_c.set_defaults(func=check_for_deps)
 
-    parser_e = subparsers.add_parser('download_cert', help='download certificate')
+    parser_e = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
     parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
-    parser_e.add_argument("--file_path", action="store", default="/etc/digicert", help="File path should I store the cert? File will be named cert.crt")
+    parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
+                          help="Where should I store the certificate files? (default: /etc/digicert")
     parser_e.set_defaults(func=download_cert)
 
-    parser_f = subparsers.add_parser('copy_cert', help='activate certificate')
+    parser_f = subparsers.add_parser('copy_cert', help='Activate certificate')
     parser_f.add_argument("--cert_path", action="store", help="Path to the cert")
     parser_f.add_argument("--apache_path", action="store", help="Path to store the cert")
     parser_f.set_defaults(func=copy_cert)
 
-    parser_g = subparsers.add_parser("all", help='Download and Configure cert in one step')
+    parser_g = subparsers.add_parser("all", help='Download and Configure your certificate in one step')
     parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
-    parser_g.add_argument("--key", action="store", help="I need the path to the key file if you already have submitted the csr for your domain")
-    parser_g.add_argument("--file_path", action="store", default="/etc/digicert", help="Where should I store the cert?")
+    parser_g.add_argument("--key", action="store",
+                          help="I need the path to the key file (if you already have submitted the csr for your order)")
+    parser_g.add_argument("--file_path", action="store", default="/etc/digicert",
+                          help="Where should I store the certificate files? (default: /etc/digicert")
     parser_g.add_argument("--api_key", action="store", help="I need an API Key")
     parser_g.add_argument("--order_id", action="store", help="I need an order_id")
     parser_g.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
@@ -113,12 +119,12 @@ def _restart_apache(domain):
 
 def parse_apache(args):
     print "my job is to parse the apache configuration file and store a backup and update the ssl config"
-    _parse_apache(args.host, args.cert, args.key, args.chain, args.apache_path)
+    _parse_apache(args.domain, args.cert, args.key, args.chain, args.apache_path)
 
 
-def _parse_apache(host, cert, key, chain, apache_config=None):
+def _parse_apache(domain, cert, key, chain, apache_config=None):
     print "Updating your apache configuration"
-    apache_parser = BaseParser(host, cert, key, chain)
+    apache_parser = BaseParser(domain, cert, key, chain)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
     apache_parser.set_certificate_directives(virtual_host)
@@ -150,6 +156,14 @@ def download_cert(args):
 def _download_cert(order_id, account_id=None, file_path=None, domain=None):
     print "\nDownloading certificate files from digicert.com with order_id %s" % order_id
     global API_KEY
+
+    if not order_id and not domain:
+        order = _select_from_orders()
+        order_id = order['id']
+        domain = order['certificate']['common_name']
+
+    if not order_id and domain:
+        order_id = _get_order_by_domain(domain)
 
     if not API_KEY:
         API_KEY = _get_temp_api_key()
