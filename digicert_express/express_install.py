@@ -148,6 +148,9 @@ def _parse_apache(host, cert, key, chain, apache_config=None):
     virtual_host = apache_parser.get_vhost_path_by_domain()
     apache_parser.set_certificate_directives(virtual_host)
 
+    _enable_ssl_mod()
+
+
 
 def _normalize_cfg_file(cfg_file):
     path = os.path.dirname(cfg_file)
@@ -416,20 +419,19 @@ def do_everything(args):
         # make the changes to apache
         _parse_apache(domain, cert, key, chain)
 
-        print "\nEnabling SSL for your apache server"
-        if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
-            _enable_ssl_mod()
-            _restart_apache(domain)
+        _restart_apache(domain)
     else:
         print "ERROR: You must specify a valid domain or order id"
 
 
 def _enable_ssl_mod():
-    try:
-        subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
-        # TODO: add method to restart apache here
-    except (OSError, subprocess.CalledProcessError) as err:
-        raise Exception("There was a problem enabling mod_ssl.  Run 'sudo a2enmod ssl' to enable it or check the apache log for more information")
+    print "\nEnabling SSL for your apache server"
+    if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
+        try:
+            subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
+            # TODO: add method to restart apache here
+        except (OSError, subprocess.CalledProcessError) as err:
+            raise Exception("There was a problem enabling mod_ssl.  Run 'sudo a2enmod ssl' to enable it or check the apache log for more information")
 
 
 def _is_ssl_mod_enabled(apache_ctl):
@@ -437,7 +439,7 @@ def _is_ssl_mod_enabled(apache_ctl):
         proc = subprocess.Popen([apache_ctl, '-M'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
     except:
-        raise Exception("There was a problem acessing 'apachectl'")
+        raise Exception("There was a problem accessing 'apachectl'")
 
     if 'ssl' in stdout:
         return True
