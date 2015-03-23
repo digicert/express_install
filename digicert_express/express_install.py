@@ -68,7 +68,6 @@ def run():
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
     parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
-    parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
     parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
                           help="Where should I store the certificate files? (default: /etc/digicert")
     parser_e.set_defaults(func=download_cert)
@@ -129,7 +128,7 @@ def _restart_apache(domain):
 
 def parse_apache(args):
     print "my job is to parse the apache configuration file and store a backup and update the ssl config"
-    _parse_apache(args.domain, args.cert, args.key, args.chain, args.apache_path)
+    _parse_apache(args.domain, args.cert, args.key, args.chain, args.apache_config)
 
 
 def _parse_apache(host, cert, key, chain, apache_config=None):
@@ -177,10 +176,10 @@ def download_cert(args):
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
 
-    _download_cert(order_id, args.account_id, args.file_path, domain)
+    _download_cert(order_id, args.file_path, domain)
 
 
-def _download_cert(order_id, account_id=None, file_path=None, domain=None):
+def _download_cert(order_id, file_path=None, domain=None):
     print "\nDownloading certificate files from digicert.com with order_id %s" % order_id
     global API_KEY
 
@@ -188,10 +187,11 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
         API_KEY = _get_temp_api_key()
 
     if API_KEY:
-        if account_id:
-            orderclient = CertificateOrder(HOST, API_KEY, customer_name=account_id)
-        else:
-            orderclient = CertificateOrder(HOST, API_KEY)
+        # if account_id:
+        #     orderclient = CertificateOrder(HOST, API_KEY, customer_name=account_id)
+        # else:
+        #     orderclient = CertificateOrder(HOST, API_KEY)
+        orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
         certificates = certificates.get('certificates')
         if not certificates:
@@ -391,7 +391,7 @@ def do_everything(args):
             if certificate:
                 domain = certificate['common_name']
 
-        certs = _download_cert(order_id, args.account_id, args.file_path, domain)
+        certs = _download_cert(order_id, args.file_path, domain)
         chain = certs['chain']
         cert = certs['cert']
 
