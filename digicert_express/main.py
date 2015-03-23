@@ -43,15 +43,17 @@ def run():
     parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0')
 
     subparsers = parser.add_subparsers(help='Choose a command')
-    parser_a = subparsers.add_parser('restart_apache', help='restart apache')
-    parser_a.add_argument("--domain", action="store", nargs="?", help="I'll verify the domain is running after the restart")
+    parser_a = subparsers.add_parser('restart_apache', help='Restart apache and verify SSL configuration')
+    parser_a.add_argument("--domain", action="store", nargs="?",
+                          help="I'll verify the domain is running after the restart")
     parser_a.set_defaults(func=restart_apache)
 
-    parser_b = subparsers.add_parser('parse_apache', help='Parse apache configuration file')
-    parser_b.add_argument("--host", action="store", help="I need a host to update")
-    parser_b.add_argument("--cert", action="store", help="I need the path to the cert for the configuration file")
-    parser_b.add_argument("--key", action="store", help="I need the path to the key for the configuration file")
-    parser_b.add_argument("--chain", action="store", help="I need the cert chain for the configuration file")
+    parser_b = subparsers.add_parser('parse_apache', help='Parse and update apache configuration with SSL settings')
+    parser_b.add_argument("--domain", action="store", help="I need a domain/host to update")
+    parser_b.add_argument("--cert", action="store", help="I need the path to the certificate")
+    parser_b.add_argument("--key", action="store", help="I need the path to the key")
+    parser_b.add_argument("--chain", action="store",
+                          help="I need the path to the certificate chain (intermediate)")
     parser_b.add_argument("--apache_config", action="store", default=None,
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
@@ -60,21 +62,27 @@ def run():
     parser_c = subparsers.add_parser('dep_check', help="I'll check that you have all needed software and install it for you")
     parser_c.set_defaults(func=check_for_deps)
 
-    parser_e = subparsers.add_parser('download_cert', help='download certificate')
+    parser_e = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
+    parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
     parser_e.add_argument("--file_path", action="store", default="/etc/digicert", help="File path should I store the cert? File will be named cert.crt")
+    parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
+    parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
+                          help="Where should I store the certificate files? (default: /etc/digicert")
     parser_e.set_defaults(func=download_cert)
 
-    parser_f = subparsers.add_parser('copy_cert', help='activate certificate')
+    parser_f = subparsers.add_parser('copy_cert', help='Activate certificate')
     parser_f.add_argument("--cert_path", action="store", help="Path to the cert")
     parser_f.add_argument("--apache_path", action="store", help="Path to store the cert")
     parser_f.set_defaults(func=copy_cert)
 
-    parser_g = subparsers.add_parser("all", help='Download and Configure cert in one step')
+    parser_g = subparsers.add_parser("all", help='Download and Configure your certificate in one step')
     parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
-    parser_g.add_argument("--key", action="store", help="I need the path to the key file if you already have submitted the csr for your domain")
-    parser_g.add_argument("--file_path", action="store", default="/etc/digicert", help="Where should I store the cert?")
+    parser_g.add_argument("--key", action="store",
+                          help="I need the path to the key file (if you already have submitted the csr for your order)")
+    parser_g.add_argument("--file_path", action="store", default="/etc/digicert",
+                          help="Where should I store the certificate files? (default: /etc/digicert")
     parser_g.add_argument("--api_key", action="store", help="I need an API Key")
     parser_g.add_argument("--order_id", action="store", help="I need an order_id")
     parser_g.set_defaults(func=do_everything)
@@ -88,7 +96,6 @@ def run():
 
     try:
         args.func(args)
-        print 'finished!'
     except Exception, e:
         print e.message + "\n"
 
@@ -126,7 +133,7 @@ def _restart_apache(domain):
 
 def parse_apache(args):
     print "my job is to parse the apache configuration file and store a backup and update the ssl config"
-    _parse_apache(args.host, args.cert, args.key, args.chain, args.apache_path)
+    _parse_apache(args.domain, args.cert, args.key, args.chain, args.apache_path)
 
 
 def _parse_apache(host, cert, key, chain, apache_config=None):
@@ -162,7 +169,19 @@ def _get_temp_api_key():
 def download_cert(args):
     global API_KEY
     API_KEY = args.api_key
-    _download_cert(args.order_id, args.account_id, args.file_path)
+
+    order_id = args.order_id
+    domain = args.domain
+
+    if not order_id and not domain:
+        order = _select_from_orders()
+        order_id = order['id']
+        domain = order['certificate']['common_name']
+
+    if not order_id and domain:
+        order_id = _get_order_by_domain(domain)
+
+    _download_cert(order_id, args.account_id, args.file_path, domain)
 
 
 def _download_cert(order_id, account_id=None, file_path=None, domain=None):
@@ -178,6 +197,9 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
         else:
             orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
+        certificates = certificates.get('certificates')
+        if not certificates:
+            raise Exception("Failed to get certificates from order ".format(order_id))
 
         if '-----' not in certificates: # then we know this is a zip file containing all certs
             zip_file = ZipFile(StringIO(certificates))
@@ -193,15 +215,24 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
         if domain:
             chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
 
-        cert = certificates.get('certificates').get('certificate')
-        cert_file = open(cert_file_path, 'w')
-        cert_file.write(cert)
-        cert_file.close()
+        try:
+            # create the download directory if it does not exist
+            if file_path and not os.path.exists(file_path):
+                os.mkdir(file_path)
 
-        chain = certificates.get('certificates').get('intermediate')
-        chain_file = open(chain_file_path, 'w')
-        chain_file.write(chain)
-        chain_file.close()
+            # download the certificate
+            cert = certificates.get('certificate')
+            cert_file = open(cert_file_path, 'w')
+            cert_file.write(cert)
+            cert_file.close()
+
+            # download the intermediate certificate
+            chain = certificates.get('intermediate')
+            chain_file = open(chain_file_path, 'w')
+            chain_file.write(chain)
+            chain_file.close()
+        except IOError as ioe:
+            raise Exception("Download failed: {0}".format(ioe))
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
@@ -351,12 +382,12 @@ def do_everything(args):
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
 
-    # FIXME this will probably need to change once we've got creating the CSR worked out..
-    if not key:
-        key = raw_input("Please enter the absolute path to you the key file you created with"
-                        " your CSR (ie: /etc/digicert/domain_name.key): ")
-
     if order_id:
+        # FIXME this will probably need to change once we've got creating the CSR worked out..
+        if not key:
+            key = raw_input("Please enter the absolute path to you the key file you created with"
+                            " your CSR (ie: /etc/digicert/domain_name.key): ")
+
         # get the order info if the domain was not passed in the args
         if not domain:
             order_info = _get_order_info(order_id)
