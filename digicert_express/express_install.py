@@ -40,6 +40,11 @@ API_KEY = None
 
 
 def run():
+
+    if os.geteuid() != 0:
+        print 'DigiCert Express Install must be run as root.'
+        exit()
+
     parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!',
                                      version='1.0')
 
