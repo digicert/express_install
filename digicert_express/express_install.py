@@ -32,7 +32,7 @@ APACHE_PROCESS_NAMES = {
 DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'python-augeas', 'openssl', 'python-pip']
 DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'python-augeas', 'openssl', 'python-pip']
 
-RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip']
+RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip', 'mod_ssl']
 
 HOST = 'localhost.digicert.com'
 
@@ -89,7 +89,6 @@ def run():
     parser_g.set_defaults(func=do_everything)
 
     args = parser.parse_args()
-    args.func(args)
 
     try:
         args.func(args)
