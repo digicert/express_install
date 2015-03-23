@@ -161,6 +161,9 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
         else:
             orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
+        certificates = certificates.get('certificates')
+        if not certificates:
+            raise Exception("Failed to get certificates from order ".format(order_id))
 
         cert_file_path = os.path.join(file_path, 'cert.crt')
         if domain:
@@ -170,21 +173,24 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
         if domain:
             chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
 
-        # create the download directory if it does not exist
-        if file_path and not os.path.exists(file_path):
-            os.mkdir(file_path)
+        try:
+            # create the download directory if it does not exist
+            if file_path and not os.path.exists(file_path):
+                os.mkdir(file_path)
 
-        # download the certificate
-        cert = certificates.get('certificates').get('certificate')
-        cert_file = open(cert_file_path, 'w')
-        cert_file.write(cert)
-        cert_file.close()
+            # download the certificate
+            cert = certificates.get('certificate')
+            cert_file = open(cert_file_path, 'w')
+            cert_file.write(cert)
+            cert_file.close()
 
-        # download the intermediate certificate
-        chain = certificates.get('certificates').get('intermediate')
-        chain_file = open(chain_file_path, 'w')
-        chain_file.write(chain)
-        chain_file.close()
+            # download the intermediate certificate
+            chain = certificates.get('intermediate')
+            chain_file = open(chain_file_path, 'w')
+            chain_file.write(chain)
+            chain_file.close()
+        except IOError as ioe:
+            raise Exception("Download failed: {0}".format(ioe))
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
