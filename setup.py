@@ -7,7 +7,7 @@ def readme():
 
 setup(
     name='digicert_express',
-    version='1.0',
+    version='1.0.0b1',
     description='Express Install for DigiCert, Inc.',
     long_description=readme(),
     classifiers=[
@@ -17,7 +17,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Topic :: Security',
     ],
-    url='http://github.com/digicert/digicert_express',
+    url='http://github.com/digicert/express_install',
     author='DigiCert, Inc.',
     author_email='support@digicert.com',
     license='MIT',

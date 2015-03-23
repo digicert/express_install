@@ -6,8 +6,10 @@ import shutil
 import getpass
 from httplib import HTTPSConnection
 import apt.cache
-import urllib
-import json
+import time
+
+from zipfile import ZipFile
+from StringIO import StringIO
 
 from parsers.base import BaseParser
 from cqrs import LoginCommand
@@ -61,8 +63,7 @@ def run():
     parser_e = subparsers.add_parser('download_cert', help='download certificate')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
-    parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
-    parser_e.add_argument("--file_path", action="store", default=os.getcwd(), help="File path should I store the cert? File will be named cert.crt")
+    parser_e.add_argument("--file_path", action="store", default="/etc/digicert", help="File path should I store the cert? File will be named cert.crt")
     parser_e.set_defaults(func=download_cert)
 
     parser_f = subparsers.add_parser('copy_cert', help='activate certificate')
@@ -73,17 +74,23 @@ def run():
     parser_g = subparsers.add_parser("all", help='Download and Configure cert in one step')
     parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
     parser_g.add_argument("--key", action="store", help="I need the path to the key file if you already have submitted the csr for your domain")
-    parser_g.add_argument("--file_path", action="store", default=os.getcwd(), help="Where should I store the cert?")
+    parser_g.add_argument("--file_path", action="store", default="/etc/digicert", help="Where should I store the cert?")
     parser_g.add_argument("--api_key", action="store", help="I need an API Key")
     parser_g.add_argument("--order_id", action="store", help="I need an order_id")
-    parser_g.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
     parser_g.set_defaults(func=do_everything)
 
     args = parser.parse_args()
+
     print args
 
     args.func(args)
     print 'finished!'
+
+    try:
+        args.func(args)
+        print 'finished!'
+    except Exception, e:
+        print e.message + "\n"
 
 
 def restart_apache(args):
@@ -91,18 +98,27 @@ def restart_apache(args):
 
 
 def _restart_apache(domain):
+    print "\nRestarting your apache server"
+
     distro_name = _determine_platform()
     command = APACHE_COMMANDS.get(distro_name)
     print subprocess.call(command, shell=True)
-    # TODO: receive domain in args
+
     if domain:
-        import time
         print 'waiting for apache process...'
         time.sleep(4)
-        # TODO: add check for apache process and check that is ssl methods here
+
         apache_process_result = _check_for_apache_process(distro_name)
         site_result = _check_for_site_availability(domain)
         ssl_result = _check_for_site_openssl(domain)
+
+        site_result = False
+        ssl_result = False
+        apache_process_result = _check_for_apache_process(distro_name)
+        if apache_process_result:
+            site_result = _check_for_site_availability(domain)
+            if site_result:
+                ssl_result = _check_for_site_openssl(domain)
 
         if not apache_process_result or not site_result or not ssl_result:
             print "An error occurred starting apache.  Please restore your previous configuration file"
@@ -126,13 +142,15 @@ def _parse_apache(host, cert, key, chain, apache_config=None):
 
 def _get_temp_api_key():
     # prompt for username and password,
+    print "You will need your Digicert account credentials to continue: "
+
     username = raw_input("DigiCert Username: ")
     password = getpass.getpass("DigiCert Password: ")
 
     result = Request(action=LoginCommand(username, password), host=HOST).send()
     if result['http_status'] >= 300:
-        print 'Download failed:  %d - %s' % (result['http_status'], result['http_reason'])
-        return
+        raise Exception('Download failed:  %d - %s' % (result['http_status'], result['http_reason']))
+
     try:
         api_key = result['api_key']
         return api_key
@@ -148,7 +166,7 @@ def download_cert(args):
 
 
 def _download_cert(order_id, account_id=None, file_path=None, domain=None):
-    print "download cert from digicert.com with order_id %s" % order_id
+    print "\nDownloading certificate files from digicert.com with order_id %s" % order_id
     global API_KEY
 
     if not API_KEY:
@@ -161,7 +179,13 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
             orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
 
+        if '-----' not in certificates: # then we know this is a zip file containing all certs
+            zip_file = ZipFile(StringIO(certificates))
+            zip_file.extractall(file_path)
+            return
+
         cert_file_path = os.path.join(file_path, 'cert.crt')
+
         if domain:
             cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
 
@@ -181,7 +205,7 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
-        print 'Username or API Key required to download certificate.'
+        raise Exception('Username or API Key required to download certificate.')
 
 
 # FIXME not currently used in any use case, we need to add this where it belongs
@@ -266,18 +290,19 @@ def _get_order_by_domain(domain):
 
 
 def _select_from_orders():
-        orders = _get_valid_orders()
-
-        i = 1
-        for order in orders:
-            print "{0}.\t{1}".format(i, order['certificate']['common_name'])
-            i += 1
-
+    orders = _get_valid_orders()
+    i = 1
+    for order in orders:
+        print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+        i += 1
+    resp = None
+    while not resp or resp == "" or resp.isalpha():
         resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
-        selection = int(resp) - 1
+    selection = int(resp) - 1
 
-        print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
-        return orders[selection]
+    print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
+    return orders[selection]
+
 
 
 def _create_csr(server_name, org, city, state, country, key_size=2048):
@@ -316,6 +341,7 @@ def do_everything(args):
     API_KEY = args.api_key
     order_id = args.order_id
     domain = args.domain
+    key = args.key
 
     if not order_id and not domain:
         order = _select_from_orders()
@@ -324,6 +350,11 @@ def do_everything(args):
 
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
+
+    # FIXME this will probably need to change once we've got creating the CSR worked out..
+    if not key:
+        key = raw_input("Please enter the absolute path to you the key file you created with"
+                        " your CSR (ie: /etc/digicert/domain_name.key): ")
 
     if order_id:
         # get the order info if the domain was not passed in the args
@@ -334,24 +365,40 @@ def do_everything(args):
                 domain = certificate['common_name']
 
         certs = _download_cert(order_id, args.account_id, args.file_path, domain)
-        key = args.key
-        if key:
-            chain = certs['chain']
-            cert = certs['cert']
+        chain = certs['chain']
+        cert = certs['cert']
 
-            # make the changes to apache
-            _parse_apache(domain, cert, key, chain)
+        # make the changes to apache
+        _parse_apache(domain, cert, key, chain)
 
-            # FIXME do we need to copy the cert in this scenario?
-            # _copy_cert(cert_path, apache_path)
-            # FIXME this is temporary
-            os.system("a2enmod ssl")
+        # FIXME do we need to copy the cert in this scenario?
+        # _copy_cert(cert_path, apache_path)
+        print "\nEnabling SSL for your apache server"
+        if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
+            _enable_ssl_mod()
             _restart_apache(domain)
-        else:
-            # FIXME is this where we do the csr for them?
-            pass
     else:
         print "ERROR: You must specify a valid domain or order id"
+
+
+def _enable_ssl_mod():
+    try:
+        subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
+        # TODO: add method to restart apache here
+    except (OSError, subprocess.CalledProcessError) as err:
+        raise Exception("There was a problem enabling mod_ssl.  Run 'sudo a2enmod ssl' to enable it or check the apache log for more information")
+
+
+def _is_ssl_mod_enabled(apache_ctl):
+    try:
+        proc = subprocess.Popen([apache_ctl, '-M'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+    except:
+        raise Exception("There was a problem acessing 'apachectl'")
+
+    if 'ssl' in stdout:
+        return True
+    return False
 
 
 def _determine_platform():
@@ -370,22 +417,25 @@ def _check_for_apache_process(platform_name):
 
 def _check_for_site_availability(domain):
     # For simply checking that the site is available HTTPSConnection is good enough
+    print "verifying {0} is available over HTTPS".format(domain)
     conn = HTTPSConnection(domain)
     conn.request('GET', '/')
     response = conn.getresponse()
-    print response
     site_status = False
     if response.status == 200:
+        print "{0} is reachable over HTTPS".format(domain)
         site_status = True
 
     return site_status
 
 
 def _check_for_site_openssl(domain):
-    # openssl s_client -connect jboards.net:443
+    # openssl s_client -connect domain.com:443
+    print "validating the SSL configuration for {0}".format(domain)
     process = os.popen("openssl s_client -connect %s:443" % domain).read().splitlines()
     site_status = False
     if 'CONNECTED' in process:
+        print "SSL configuration for {0} is valid".format(domain)
         site_status = True
     return site_status
 
@@ -399,7 +449,7 @@ def check_for_deps(args):
 
 
 def check_for_deps_debian():
-    # check to see which of the deps are install
+    # check to see which of the deps are installed
     try:
         a = apt.cache.Cache(memonly=True)
 
@@ -407,11 +457,12 @@ def check_for_deps_debian():
             if a[d].is_installed:
                 continue
             else:
-                # prompt for install
                 answer = raw_input('Install: %s (y/n) ' % a[d].name)
                 if answer.lower() == 'y':
                     a[d].mark_install()
-                    # TODO add else for n condition
+                else:
+                    print "Please install %s package yourself: " % a[d].name
+                    raw_input("Press enter to continue: ")
         a.commit()
     except ImportError:
         pass
@@ -431,7 +482,7 @@ def check_for_deps_centos():
                     if answer.lower().strip() == 'y':
                         yb.install(name=p.name)
                     else:
-                        print "Please install package yourself: %s" % package_name
+                        print "Please install %s package yourself: " % package_name
                         raw_input("Press enter to continue: ")
     except ImportError:
         pass

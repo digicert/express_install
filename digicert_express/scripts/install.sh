@@ -83,7 +83,7 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
             fi
         fi
         if ! [ "$PYTHON_PACKAGES" = "" ]; then 
-            sudo pip install $PYTHON_PACKAGES
+            sudo pip install --pre $PYTHON_PACKAGES
             if [ $? -ne 0 ]; then
                 echo "Installation of package $package failed - aborting."
                 exit
@@ -95,4 +95,3 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
         exit
     fi
 fi
-
