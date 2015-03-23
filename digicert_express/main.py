@@ -339,12 +339,12 @@ def do_everything(args):
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
 
-    # FIXME this will probably need to change once we've got creating the CSR worked out..
-    if not key:
-        key = raw_input("Please enter the absolute path to you the key file you created with"
-                        " your CSR (ie: /etc/digicert/domain_name.key): ")
-
     if order_id:
+        # FIXME this will probably need to change once we've got creating the CSR worked out..
+        if not key:
+            key = raw_input("Please enter the absolute path to you the key file you created with"
+                            " your CSR (ie: /etc/digicert/domain_name.key): ")
+
         # get the order info if the domain was not passed in the args
         if not domain:
             order_info = _get_order_info(order_id)
