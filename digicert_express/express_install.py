@@ -32,7 +32,7 @@ APACHE_PROCESS_NAMES = {
 DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'python-augeas', 'openssl', 'python-pip']
 DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'python-augeas', 'openssl', 'python-pip']
 
-RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip']
+RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip', 'mod_ssl']
 
 HOST = 'localhost.digicert.com'
 
@@ -40,7 +40,7 @@ API_KEY = None
 
 
 def run():
-    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0')
+    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0.0b1')
 
     subparsers = parser.add_subparsers(help='Choose a command')
     parser_a = subparsers.add_parser('restart_apache', help='Restart apache and verify SSL configuration')
@@ -89,10 +89,7 @@ def run():
 
     args = parser.parse_args()
 
-    print args
-
     args.func(args)
-    print 'finished!'
 
     try:
         args.func(args)
