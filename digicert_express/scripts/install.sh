@@ -5,7 +5,7 @@ echo "DigiCert Express Install bootstrapper"
 echo
 
 CHECK_INSTALL_PACKAGES=""
-CHECK_PYTHON_PACKAGES="digicert-client express-install"
+CHECK_PYTHON_PACKAGES="digicert-client express-install python-augeas"
 
 
 # check for distribution, debian, centos, ubuntu
@@ -26,10 +26,10 @@ fi
 MACHINE_TYPE=`uname -m`
 if [ ${MACHINE_TYPE} = "x86_64" ]; then
     # 64-bit stuff here
-    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 python-augeas openssl"
+    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 openssl"
 else
   # 32-bit stuff here
-    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools:i386 libaugeas0:i386 python-augeas openssl"
+    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools:i386 libaugeas0:i386 openssl"
 fi
 
 

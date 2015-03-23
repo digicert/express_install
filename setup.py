@@ -24,5 +24,8 @@ setup(
     zip_safe=False,
     packages=find_packages(exclude=['tests.*', '*.tests.*', '*.tests', 'tests', 'scripts']),
     include_package_data=True,
+    install_requires=[
+        'digicert_client',
+        'python-augeas',
+    ],
 )
-
