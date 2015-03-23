@@ -332,6 +332,9 @@ def _get_order_by_domain(domain):
         if common_name == domain:
             return order['id']
 
+        if domain.startswith('www.') and common_name == domain.split('.', 1)[1]:
+            return order['id']
+
         # if not a direct match, look for a wildcard match
         if "*." in common_name and common_name.replace("*.", "").strip() in domain:
             return order['id']
