@@ -132,14 +132,10 @@ def parse_apache(args):
 
 
 def _parse_apache(host, cert, key, chain, apache_config=None):
-    if host and cert and key and chain:
-        try:
-            apache_parser = BaseParser(host, cert, key, chain)
-            apache_parser.load_apache_configs(apache_config)
-            virtual_host = apache_parser.get_vhost_path_by_domain()
-            apache_parser.set_certificate_directives(virtual_host)
-        except Exception as e:
-            print e.message
+    apache_parser = BaseParser(host, cert, key, chain)
+    apache_parser.load_apache_configs(apache_config)
+    virtual_host = apache_parser.get_vhost_path_by_domain()
+    apache_parser.set_certificate_directives(virtual_host)
 
 
 def _get_temp_api_key():
@@ -194,42 +190,48 @@ def _download_cert(order_id, file_path=None, domain=None):
         orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
 
-        if '-----' not in certificates: # then we know this is a zip file containing all certs
-            zip_file = ZipFile(StringIO(certificates))
-            zip_file.extractall(file_path)
-            return
-
-        certificates = certificates.get('certificates')
-        if not certificates:
-            raise Exception("Failed to get certificates from order ".format(order_id))
-
         cert_file_path = os.path.join(file_path, 'cert.crt')
-
-        if domain:
-            cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
-
         chain_file_path = os.path.join(file_path, 'chain.pem')
-        if domain:
-            chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
 
-        try:
-            # create the download directory if it does not exist
-            if file_path and not os.path.exists(file_path):
-                os.mkdir(file_path)
+        if '-----' not in certificates: # then we know this is a zip file containing all certs
+            try:
+                zip_file = ZipFile(StringIO(certificates))
+                zip_file.extractall(file_path)
 
-            # download the certificate
-            cert = certificates.get('certificate')
-            cert_file = open(cert_file_path, 'w')
-            cert_file.write(cert)
-            cert_file.close()
+                # get the files that were extracted
+                file_path = os.path.join(file_path, "certs")
+                cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
+                chain_file_path = os.path.join(file_path, 'DigicertCA.crt')
 
-            # download the intermediate certificate
-            chain = certificates.get('intermediate')
-            chain_file = open(chain_file_path, 'w')
-            chain_file.write(chain)
-            chain_file.close()
-        except IOError as ioe:
-            raise Exception("Download failed: {0}".format(ioe))
+            except IOError as ioe:
+                raise Exception("Download failed: {0}".format(ioe))
+        else:
+            certificates = certificates.get('certificates')
+            if not certificates:
+                raise Exception("Failed to get certificates from order ".format(order_id))
+
+            if domain:
+                cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
+                chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
+
+            try:
+                # create the download directory if it does not exist
+                if file_path and not os.path.exists(file_path):
+                    os.mkdir(file_path)
+
+                # download the certificate
+                cert = certificates.get('certificate')
+                cert_file = open(cert_file_path, 'w')
+                cert_file.write(cert)
+                cert_file.close()
+
+                # download the intermediate certificate
+                chain = certificates.get('intermediate')
+                chain_file = open(chain_file_path, 'w')
+                chain_file.write(chain)
+                chain_file.close()
+            except IOError as ioe:
+                raise Exception("Download failed: {0}".format(ioe))
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
