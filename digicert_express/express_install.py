@@ -39,6 +39,8 @@ HOST = 'localhost.digicert.com'
 
 API_KEY = None
 
+CFG_PATH = '/etc/digicert'
+
 
 def run():
 
@@ -74,8 +76,8 @@ def run():
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
     parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
-    parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
-                          help="Where should I store the certificate files? (default: /etc/digicert")
+    # parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
+    #                       help="Where should I store the certificate files? (default: /etc/digicert")
     parser_e.set_defaults(func=download_cert)
 
     parser_f = subparsers.add_parser('copy_cert', help='Activate certificate')
@@ -87,8 +89,8 @@ def run():
     parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
     parser_g.add_argument("--key", action="store",
                           help="I need the path to the key file (if you already have submitted the csr for your order)")
-    parser_g.add_argument("--file_path", action="store", default="/etc/digicert",
-                          help="Where should I store the certificate files? (default: /etc/digicert")
+    # parser_g.add_argument("--file_path", action="store", default="/etc/digicert",
+    #                       help="Where should I store the certificate files? (default: /etc/digicert")
     parser_g.add_argument("--api_key", action="store", help="I need an API Key")
     parser_g.add_argument("--order_id", action="store", help="I need an order_id")
     parser_g.set_defaults(func=do_everything)
@@ -138,10 +140,24 @@ def parse_apache(args):
 
 
 def _parse_apache(host, cert, key, chain, apache_config=None):
+    cert = _normalize_cfg_file(cert)
+    key = _normalize_cfg_file(key)
+    chain = _normalize_cfg_file(chain)
     apache_parser = BaseParser(host, cert, key, chain)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
     apache_parser.set_certificate_directives(virtual_host)
+
+
+def _normalize_cfg_file(cfg_file):
+    path = os.path.dirname(cfg_file)
+    name = os.path.basename(cfg_file)
+    if '/etc/digicert' != path:
+        normalized_cfg_file = '/etc/digicert/%s' % name
+        shutil.copy(cfg_file, normalized_cfg_file)
+    else:
+        normalized_cfg_file = cfg_file
+    return normalized_cfg_file
 
 
 def _get_temp_api_key():
@@ -178,7 +194,7 @@ def download_cert(args):
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
 
-    _download_cert(order_id, args.file_path, domain)
+    _download_cert(order_id, CFG_PATH, domain)
 
 
 def _download_cert(order_id, file_path=None, domain=None):
@@ -393,7 +409,7 @@ def do_everything(args):
             if certificate:
                 domain = certificate['common_name']
 
-        certs = _download_cert(order_id, args.file_path, domain)
+        certs = _download_cert(order_id, CFG_PATH, domain)
         chain = certs['chain']
         cert = certs['cert']
 
