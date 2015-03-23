@@ -40,7 +40,8 @@ API_KEY = None
 
 
 def run():
-    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0')
+    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!',
+                                     version='1.0')
 
     subparsers = parser.add_subparsers(help='Choose a command')
     parser_a = subparsers.add_parser('restart_apache', help='Restart apache and verify SSL configuration')
@@ -59,14 +60,14 @@ def run():
                                "include it here, if not we will try to find it for you")
     parser_b.set_defaults(func=parse_apache)
 
-    parser_c = subparsers.add_parser('dep_check', help="I'll check that you have all needed software and install it for you")
+    parser_c = subparsers.add_parser('dep_check',
+                                     help="I'll check that you have all needed software and install it for you")
     parser_c.set_defaults(func=check_for_deps)
 
     parser_e = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
     parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
-    parser_e.add_argument("--file_path", action="store", default="/etc/digicert", help="File path should I store the cert? File will be named cert.crt")
     parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
     parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
                           help="Where should I store the certificate files? (default: /etc/digicert")
@@ -88,11 +89,7 @@ def run():
     parser_g.set_defaults(func=do_everything)
 
     args = parser.parse_args()
-
-    print args
-
     args.func(args)
-    print 'finished!'
 
     try:
         args.func(args)
