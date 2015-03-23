@@ -15,6 +15,7 @@ from parsers.base import BaseParser
 from cqrs import LoginCommand
 from digicert_client import CertificateOrder, Request
 
+
 APACHE_COMMANDS = {
     'LinuxMint': 'sudo service apache2 restart',
     'CentOS': 'sudo service httpd restart',
@@ -190,7 +191,7 @@ def _download_cert(order_id, file_path=None, domain=None):
         chain_file_path = os.path.join(file_path, 'chain.pem')
 
         try:
-            if '-----' not in certificates:
+            if isinstance(certificates, str):
                 # then we know this is a zip file containing all certs
                 zip_file = ZipFile(StringIO(certificates))
                 zip_file.extractall(file_path)
@@ -199,7 +200,6 @@ def _download_cert(order_id, file_path=None, domain=None):
                 file_path = os.path.join(file_path, "certs")
                 cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
                 chain_file_path = os.path.join(file_path, 'DigicertCA.crt')
-
             else:
                 certificates = certificates.get('certificates')
                 if not certificates:
