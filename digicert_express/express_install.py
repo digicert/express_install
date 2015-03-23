@@ -183,18 +183,15 @@ def _download_cert(order_id, file_path=None, domain=None):
         API_KEY = _get_temp_api_key()
 
     if API_KEY:
-        # if account_id:
-        #     orderclient = CertificateOrder(HOST, API_KEY, customer_name=account_id)
-        # else:
-        #     orderclient = CertificateOrder(HOST, API_KEY)
         orderclient = CertificateOrder(HOST, API_KEY)
         certificates = orderclient.download(digicert_order_id=order_id)
 
         cert_file_path = os.path.join(file_path, 'cert.crt')
         chain_file_path = os.path.join(file_path, 'chain.pem')
 
-        if '-----' not in certificates: # then we know this is a zip file containing all certs
-            try:
+        try:
+            if '-----' not in certificates:
+                # then we know this is a zip file containing all certs
                 zip_file = ZipFile(StringIO(certificates))
                 zip_file.extractall(file_path)
 
@@ -203,18 +200,15 @@ def _download_cert(order_id, file_path=None, domain=None):
                 cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
                 chain_file_path = os.path.join(file_path, 'DigicertCA.crt')
 
-            except IOError as ioe:
-                raise Exception("Download failed: {0}".format(ioe))
-        else:
-            certificates = certificates.get('certificates')
-            if not certificates:
-                raise Exception("Failed to get certificates from order ".format(order_id))
+            else:
+                certificates = certificates.get('certificates')
+                if not certificates:
+                    raise Exception("Failed to get certificates from order ".format(order_id))
 
-            if domain:
-                cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
-                chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
+                if domain:
+                    cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
+                    chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
 
-            try:
                 # create the download directory if it does not exist
                 if file_path and not os.path.exists(file_path):
                     os.mkdir(file_path)
@@ -230,8 +224,8 @@ def _download_cert(order_id, file_path=None, domain=None):
                 chain_file = open(chain_file_path, 'w')
                 chain_file.write(chain)
                 chain_file.close()
-            except IOError as ioe:
-                raise Exception("Download failed: {0}".format(ioe))
+        except IOError as ioe:
+            raise Exception("Download failed: {0}".format(ioe))
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
@@ -401,8 +395,6 @@ def do_everything(args):
         # make the changes to apache
         _parse_apache(domain, cert, key, chain)
 
-        # FIXME do we need to copy the cert in this scenario?
-        # _copy_cert(cert_path, apache_path)
         print "\nEnabling SSL for your apache server"
         if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
             _enable_ssl_mod()
