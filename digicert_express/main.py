@@ -61,6 +61,7 @@ def run():
 
     parser_e = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
     parser_e.add_argument("--order_id", action="store", help="I need an order_id")
+    parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
     parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
     parser_e.add_argument("--account_id", nargs="?", action="store", help="I need an account_id")
     parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
@@ -150,12 +151,9 @@ def _get_temp_api_key():
 def download_cert(args):
     global API_KEY
     API_KEY = args.api_key
-    _download_cert(args.order_id, args.account_id, args.file_path)
 
-
-def _download_cert(order_id, account_id=None, file_path=None, domain=None):
-    print "\nDownloading certificate files from digicert.com with order_id %s" % order_id
-    global API_KEY
+    order_id = args.order_id
+    domain = args.domain
 
     if not order_id and not domain:
         order = _select_from_orders()
@@ -164,6 +162,13 @@ def _download_cert(order_id, account_id=None, file_path=None, domain=None):
 
     if not order_id and domain:
         order_id = _get_order_by_domain(domain)
+
+    _download_cert(order_id, args.account_id, args.file_path, domain)
+
+
+def _download_cert(order_id, account_id=None, file_path=None, domain=None):
+    print "\nDownloading certificate files from digicert.com with order_id %s" % order_id
+    global API_KEY
 
     if not API_KEY:
         API_KEY = _get_temp_api_key()
