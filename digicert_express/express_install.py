@@ -527,7 +527,6 @@ def _enable_ssl_mod(verbose=False):
     if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
         try:
             subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
-            _restart_apache()
         except (OSError, subprocess.CalledProcessError) as err:
             raise Exception("There was a problem enabling mod_ssl.  Run 'sudo a2enmod ssl' to enable it or check the apache log for more information")
 
