@@ -56,6 +56,14 @@ def run():
     dependancy_check_parser.set_defaults(func=check_for_deps)
 
 
+    download_cert_parser = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
+    download_cert_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
+    download_cert_parser.add_argument("--domain", action="store", help="Domain name for the certificate")
+    download_cert_parser.add_argument("--api_key", action="store", nargs="?", help="Skip authentication step with a DigiCert API key")
+    download_cert_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
+    download_cert_parser.set_defaults(func=download_cert)
+
+
     configure_apache_parser = subparsers.add_parser("configure_apache", help="Update Apache configuration with SSL settings")
     configure_apache_parser.add_argument("--domain", action="store", help="Domain name to secure")
     configure_apache_parser.add_argument("--cert", action="store", help="Absolute path to certificate file")
@@ -65,14 +73,6 @@ def run():
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
     configure_apache_parser.set_defaults(func=configure_apache)
-
-
-    download_cert_parser = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
-    download_cert_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
-    download_cert_parser.add_argument("--domain", action="store", help="Domain name for the certificate")
-    download_cert_parser.add_argument("--api_key", action="store", nargs="?", help="Skip authentication step with a DigiCert API key")
-    download_cert_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
-    download_cert_parser.set_defaults(func=download_cert)
 
 
     restart_apache_parser = subparsers.add_parser('restart_apache', help='Restart Apache and verify SSL configuration')
