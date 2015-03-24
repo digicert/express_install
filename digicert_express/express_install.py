@@ -187,11 +187,13 @@ def download_cert(args):
 
     if not order_id and not domain:
         order = _select_from_orders()
-        order_id = order['id']
-        domain = order['certificate']['common_name']
 
     if not order_id and domain:
-        order_id = _get_order_by_domain(domain)
+        order = _get_order_by_domain(domain)
+
+    if order:
+        order_id = order['id']
+        domain = order['certificate']['common_name']
 
     _download_cert(order_id, CFG_PATH, domain)
 
@@ -330,18 +332,18 @@ def _get_order_by_domain(domain):
         # match the domain name to the common name on the order
         common_name = cert['common_name']
         if common_name == domain:
-            return order['id']
+            return order
 
         if domain.startswith('www.'):
             if common_name == domain.split('.', 1)[1]:
-                return order['id']
+                return order
         else:
             if common_name == 'www.%s' % domain:
-                return order['id']
+                return order
 
         # if not a direct match, look for a wildcard match
         if "*." in common_name and common_name.replace("*.", "").strip() in domain:
-            return order['id']
+            return order
 
 
 def _select_from_orders():
@@ -363,7 +365,6 @@ def _select_from_orders():
 
     print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
     return orders[selection]
-
 
 
 def _create_csr(server_name, org, city, state, country, key_size=2048):
@@ -401,13 +402,20 @@ def do_everything(args):
     domain = args.domain
     key = args.key
 
+    # in some cases (*.domain.com, www.domain.com) the entered domain name could be slightly different
+    # than the common name on the certificate, this really only matters when downloading the cert
+    common_name = domain
+
     if not order_id and not domain:
         order = _select_from_orders()
         order_id = order['id']
         domain = order['certificate']['common_name']
+        common_name = domain
 
     if not order_id and domain:
-        order_id = _get_order_by_domain(domain)
+        order = _get_order_by_domain(domain)
+        order_id = order['id']
+        common_name = order['certificate']['common_name']
 
     if order_id:
         # FIXME this will probably need to change once we've got creating the CSR worked out..
@@ -421,8 +429,9 @@ def do_everything(args):
             certificate = order_info['certificate']
             if certificate:
                 domain = certificate['common_name']
+                common_name = domain
 
-        certs = _download_cert(order_id, CFG_PATH, domain)
+        certs = _download_cert(order_id, CFG_PATH, common_name)
         chain = certs['chain']
         cert = certs['cert']
 
