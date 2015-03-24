@@ -408,21 +408,30 @@ def _get_order_by_domain(domain):
 def _select_from_orders():
     orders = _get_valid_orders()
     resp = None
-    while not resp or resp == "" or resp.isalpha():
-        i = 1
-        for order in orders:
-            print "{0}.\t{1}".format(i, order['certificate']['common_name'])
-            i += 1
+    if len(orders) > 1:
+        while not resp or resp == "" or resp.isalpha():
+            i = 1
+            for order in orders:
+                print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+                i += 1
 
-        resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
+            resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
 
-        if resp.isalpha() or int(resp) > len(orders) or int(resp) < 0:
-            resp = None
-            print "\nERROR: Invalid number, please try again.\n"
+            if resp.isalpha() or int(resp) > len(orders) or int(resp) < 0:
+                resp = None
+                print "\nERROR: Invalid number, please try again.\n"
+    else:
+        # there is only one order, choose it
+        order_id = orders[0]['id']
+        domain = orders[0]['certificate']['common_name']
+        if raw_input("Continue with order #{0} ({1})? (Y/n)".format(order_id, domain)) != 'n':
+            resp = 1
+        else:
+            raise Exception("")
 
     selection = int(resp) - 1
 
-    print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
+    print "Order {0}: {1}".format(orders[selection]['id'], orders[selection]['certificate']['common_name'])
     return orders[selection]
 
 
