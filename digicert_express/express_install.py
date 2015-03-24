@@ -147,39 +147,49 @@ def configure_apache(args):
             common_name = order['certificate']['common_name']
 
     if not cert:
-        # look for the cert in /etc/digicert
-        file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".crt")
-        if os.path.exists(file_path):
-            cert = file_path
-        else:
-            while not cert:
-                cert = raw_input("We were unable to find your certificate.  "
-                                 "Please enter the file path of your certificate: ")
+        cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate')
+        if not cert:
+            print 'No valid certificate file located; aborting.'
+            return
+
     if not chain:
-        # look for the chain in /etc/digicert
-        file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".pem")
-        if os.path.exists(file_path):
-            chain = file_path
-        else:
-            file_path = os.path.join(CFG_PATH, "DigiCertCA.crt")
-            if os.path.exists(file_path):
-                chain = file_path
-            else:
-                while not chain:
-                    chain = raw_input("We were unable to find your chain (intermediate) certificate.  "
-                                      "Please enter the file path of your chain (intermediate) certificate: ")
+        chain = _locate_cfg_file(['%s.pem' % common_name.replace('.', '_'), 'DigiCertCA.crt'], 'Certificate chain')
+        if not chain:
+            print 'No valid certificate chain file located; aborting.'
+            return
 
     if not key:
-        # look for the key in /etc/digicert
-        file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".key")
-        if os.path.exists(file_path):
-            key = file_path
-        else:
-            while not key:
-                key = raw_input("We were unable to find your key.  "
-                                "Please enter the file path of your key: ")
+        key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
+        if not key:
+            print 'No valid private key file located; aborting.'
+            return
 
     _configure_apache(domain, cert, key, chain, args.apache_config, args.verbose)
+
+
+def _locate_cfg_file(cfg_file_names, file_type):
+    if isinstance(cfg_file_names, basestring):
+        names = [cfg_file_names]
+    else:
+        names = cfg_file_names
+    for cfg_file_name in names:
+        file_path = os.path.join(CFG_PATH, cfg_file_name)
+        if os.path.exists(file_path):
+            return file_path
+    # At this point we haven't found any matching files so we need to prompt for one
+    file_path = None
+    try:
+        while not file_path:
+            file_path = raw_input('%s file could not be found.  Please provide a path to the file: ' % file_type)
+            if os.path.exists(file_path):
+                break
+            if len(file_path):
+                print 'No such file or directory: "%s"' % file_path
+            file_path = None
+    except KeyboardInterrupt:
+        print '\nNo valid file selected.'
+    return file_path
+
 
 
 def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False):
