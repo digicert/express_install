@@ -49,7 +49,8 @@ def run():
         print 'DigiCert Express Install must be run as root.'
         exit()
 
-    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0')
+    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!  '
+                                                 'Run the following commands in the order shown below, or choose "all" to do everything in one step.', version='1.0')
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
 
     dependency_check_parser = subparsers.add_parser('dep_check', help="Check for and install any needed dependencies")
@@ -193,13 +194,9 @@ def _locate_cfg_file(cfg_file_names, file_type):
 
 
 def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False):
-    cert = _normalize_cfg_file(cert, verbose)
-    key = _normalize_cfg_file(key, verbose)
-    chain = _normalize_cfg_file(chain, verbose)
-
     if verbose:
         print 'Parsing Apache configuration...'
-    apache_parser = BaseParser(host, cert, key, chain)
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
@@ -210,19 +207,6 @@ def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False)
     _enable_ssl_mod(verbose)
 
     print 'Apache configuration updated successfully.'
-
-
-def _normalize_cfg_file(cfg_file, verbose=False):
-    path = os.path.dirname(cfg_file)
-    name = os.path.basename(cfg_file)
-    if '/etc/digicert' != path:
-        normalized_cfg_file = '/etc/digicert/%s' % name
-        shutil.copy(cfg_file, normalized_cfg_file)
-        if verbose:
-            print 'Copied %s to %s...' % (cfg_file, normalized_cfg_file)
-    else:
-        normalized_cfg_file = cfg_file
-    return normalized_cfg_file
 
 
 def _get_temp_api_key():
@@ -434,21 +418,30 @@ def _get_order_by_domain(domain):
 def _select_from_orders():
     orders = _get_valid_orders()
     resp = None
-    while not resp or resp == "" or resp.isalpha():
-        i = 1
-        for order in orders:
-            print "{0}.\t{1}".format(i, order['certificate']['common_name'])
-            i += 1
+    if len(orders) > 1:
+        while not resp or resp == "" or resp.isalpha():
+            i = 1
+            for order in orders:
+                print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+                i += 1
 
-        resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
+            resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
 
-        if resp.isalpha() or int(resp) > len(orders) or int(resp) < 0:
-            resp = None
-            print "\nERROR: Invalid number, please try again.\n"
+            if resp.isalpha() or int(resp) > len(orders) or int(resp) < 0:
+                resp = None
+                print "\nERROR: Invalid number, please try again.\n"
+    else:
+        # there is only one order, choose it
+        order_id = orders[0]['id']
+        domain = orders[0]['certificate']['common_name']
+        if raw_input("Continue with order #{0} ({1})? (Y/n)".format(order_id, domain)) != 'n':
+            resp = 1
+        else:
+            raise Exception("")
 
     selection = int(resp) - 1
 
-    print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
+    print "Order {0}: {1}".format(orders[selection]['id'], orders[selection]['certificate']['common_name'])
     return orders[selection]
 
 
