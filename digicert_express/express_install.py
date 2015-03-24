@@ -476,7 +476,7 @@ def _check_for_site_availability(domain):
 def _check_for_site_openssl(domain):
     # openssl s_client -connect domain.com:443
     print "validating the SSL configuration for {0}".format(domain)
-    process = os.popen("openssl s_client -connect %s:443" % domain).read().splitlines()
+    process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
     site_status = False
     if 'CONNECTED' in process:
         print "SSL configuration for {0} is valid".format(domain)
