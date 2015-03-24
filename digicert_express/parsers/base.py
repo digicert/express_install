@@ -39,9 +39,9 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
-        verify_and_normalize_file(cert_path, "Certificate file", apache_user, storage_path, verbose)
-        verify_and_normalize_file(key_path, "Key file", apache_user, storage_path, verbose)
-        verify_and_normalize_file(chain_path, "CA Chain file", apache_user, storage_path, verbose)
+        cert_path = verify_and_normalize_file(cert_path, "Certificate file", apache_user, storage_path, verbose)
+        chain_path = verify_and_normalize_file(chain_path, "CA Chain file", apache_user, storage_path, verbose)
+        key_path = verify_and_normalize_file(key_path, "Key file", apache_user, storage_path, verbose)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -388,6 +388,8 @@ def verify_and_normalize_file(file_path, desc, apache_user, storage_path, verbos
 
     # change the permission of the ssl files, only the root and apache users should have read permissions
     os.system("chmod 640 {0}".format(file_path))
+
+    return file_path
 
 
 def get_path_to_file(path):
