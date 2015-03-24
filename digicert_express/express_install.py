@@ -68,6 +68,7 @@ def run():
     parser_b.add_argument("--apache_config", action="store", default=None,
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
+    parser_b.add_argument("--verbose", action="store_true", help="Display verbose output")
     parser_b.set_defaults(func=configure_apache)
 
     parser_c = subparsers.add_parser('dep_check',
@@ -130,7 +131,6 @@ def _restart_apache(domain):
 
 
 def configure_apache(args):
-    print "my job is to parse the apache configuration file and store a backup and update the ssl config"
     domain = args.domain
     cert = args.cert
     chain = args.chain
@@ -156,7 +156,7 @@ def configure_apache(args):
                 cert = raw_input("We were unable to find your certificate.  "
                                  "Please enter the file path of your certificate: ")
     if not chain:
-        # look for the cert in /etc/digicert
+        # look for the chain in /etc/digicert
         file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".pem")
         if os.path.exists(file_path):
             chain = file_path
@@ -170,7 +170,7 @@ def configure_apache(args):
                                       "Please enter the file path of your chain (intermediate) certificate: ")
 
     if not key:
-        # look for the cert in /etc/digicert
+        # look for the key in /etc/digicert
         file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".key")
         if os.path.exists(file_path):
             key = file_path
@@ -179,27 +179,37 @@ def configure_apache(args):
                 key = raw_input("We were unable to find your key.  "
                                 "Please enter the file path of your key: ")
 
-    _configure_apache(domain, cert, key, chain, args.apache_config)
+    _configure_apache(domain, cert, key, chain, args.apache_config, args.verbose)
 
 
-def _configure_apache(host, cert, key, chain, apache_config=None):
-    cert = _normalize_cfg_file(cert)
-    key = _normalize_cfg_file(key)
-    chain = _normalize_cfg_file(chain)
+def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False):
+    cert = _normalize_cfg_file(cert, verbose)
+    key = _normalize_cfg_file(key, verbose)
+    chain = _normalize_cfg_file(chain, verbose)
+
+    if verbose:
+        print 'Parsing Apache configuration...'
     apache_parser = BaseParser(host, cert, key, chain)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
+
+    if verbose:
+        print 'Updating Apache configuration...'
     apache_parser.set_certificate_directives(virtual_host)
 
-    _enable_ssl_mod()
+    _enable_ssl_mod(verbose)
+
+    print 'Apache configuration updated successfully.'
 
 
-def _normalize_cfg_file(cfg_file):
+def _normalize_cfg_file(cfg_file, verbose=False):
     path = os.path.dirname(cfg_file)
     name = os.path.basename(cfg_file)
     if '/etc/digicert' != path:
         normalized_cfg_file = '/etc/digicert/%s' % name
         shutil.copy(cfg_file, normalized_cfg_file)
+        if verbose:
+            print 'Copied %s to %s...' % (cfg_file, normalized_cfg_file)
     else:
         normalized_cfg_file = cfg_file
     return normalized_cfg_file
@@ -245,7 +255,7 @@ def download_cert(args):
 
 
 def _download_cert(order_id, file_path=None, domain=None, verbose=False):
-    print '' # get a newline
+    print ''  # get a newline
 
     if verbose:
         msg_downloading = 'Downloading certificate files for'
@@ -508,8 +518,9 @@ def do_everything(args):
         print "ERROR: You must specify a valid domain or order id"
 
 
-def _enable_ssl_mod():
-    print "\nEnabling SSL for your apache server"
+def _enable_ssl_mod(verbose=False):
+    if verbose:
+        print 'Enabling Apache SSL module...'
     if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
         try:
             subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
