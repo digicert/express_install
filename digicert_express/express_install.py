@@ -184,13 +184,9 @@ def configure_apache(args):
 
 
 def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False):
-    cert = _normalize_cfg_file(cert, verbose)
-    key = _normalize_cfg_file(key, verbose)
-    chain = _normalize_cfg_file(chain, verbose)
-
     if verbose:
         print 'Parsing Apache configuration...'
-    apache_parser = BaseParser(host, cert, key, chain)
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
@@ -201,19 +197,6 @@ def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False)
     _enable_ssl_mod(verbose)
 
     print 'Apache configuration updated successfully.'
-
-
-def _normalize_cfg_file(cfg_file, verbose=False):
-    path = os.path.dirname(cfg_file)
-    name = os.path.basename(cfg_file)
-    if '/etc/digicert' != path:
-        normalized_cfg_file = '/etc/digicert/%s' % name
-        shutil.copy(cfg_file, normalized_cfg_file)
-        if verbose:
-            print 'Copied %s to %s...' % (cfg_file, normalized_cfg_file)
-    else:
-        normalized_cfg_file = cfg_file
-    return normalized_cfg_file
 
 
 def _get_temp_api_key():

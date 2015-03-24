@@ -27,7 +27,7 @@ class ParserException(Exception):
 class BaseParser(object):
     """docstring for BaseParser"""
 
-    def __init__(self, domain, cert_path, key_path, chain_path, aug=None):
+    def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert', verbose=False, aug=None):
         self.domain = domain
 
         if not domain:
@@ -39,9 +39,9 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
-        verify_file(cert_path, "Certificate file", apache_user)
-        verify_file(key_path, "Key file", apache_user)
-        verify_file(chain_path, "CA Chain file", apache_user)
+        verify_file(cert_path, "Certificate file", apache_user, storage_path, verbose)
+        verify_file(key_path, "Key file", apache_user, storage_path, verbose)
+        verify_file(chain_path, "CA Chain file", apache_user, storage_path, verbose)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -357,7 +357,7 @@ class BaseParser(object):
         self.aug.load()
 
 
-def verify_file(file_path, desc, apache_user):
+def verify_file(file_path, desc, apache_user, storage_path, verbose=False):
 
     """
     Verify that the file exists and the user has the necessary permissions to this file
@@ -369,6 +369,16 @@ def verify_file(file_path, desc, apache_user):
 
     if not os.path.isfile(file_path):
         raise ParserException("{0} '{1}' could not be found on the filesystem".format(desc, file_path))
+
+    # copy the files to the storage path if they aren't already there
+    path = os.path.dirname(file_path)
+    name = os.path.basename(file_path)
+    if storage_path != path:
+        normalized_cfg_file = '%s/%s' % (storage_path, name)
+        shutil.copy(file_path, normalized_cfg_file)
+        if verbose:
+            print 'Copied %s to %s...' % (file_path, normalized_cfg_file)
+        file_path = normalized_cfg_file
 
     # change the owners of the ssl files
     os.system("chown root:{0} {1}".format(apache_user, file_path))
