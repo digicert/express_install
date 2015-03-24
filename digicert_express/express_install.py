@@ -97,7 +97,13 @@ def run():
 
 
 def restart_apache(args):
-    _restart_apache(args.domain)
+    domain = args.domain
+    if not domain:
+        order = _select_from_orders()
+        if order:
+            domain = order['certificate']['common_name']
+
+    _restart_apache(domain)
 
 
 def _restart_apache(domain=''):
