@@ -629,4 +629,7 @@ def check_for_deps_centos():
 
 
 if __name__ == '__main__':
-    run()
+    try:
+        run()
+    except KeyboardInterrupt:
+        print
