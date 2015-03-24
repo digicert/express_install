@@ -130,8 +130,6 @@ def _restart_apache(domain=''):
 
 
 def configure_apache(args):
-    if args.verbose:
-        print "Updating the Apache configuration with SSL settings."
     domain = args.domain
     cert = args.cert
     chain = args.chain
@@ -146,6 +144,9 @@ def configure_apache(args):
         order = _get_order_by_domain(domain)
         if order:
             common_name = order['certificate']['common_name']
+
+    if args.verbose:
+        print "Updating the Apache configuration with SSL settings."
 
     if not cert:
         cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate')
@@ -166,6 +167,8 @@ def configure_apache(args):
             return
 
     _configure_apache(domain, cert, key, chain, args.apache_config, args.verbose)
+
+    print 'Please restart Apache for your changes to take effect.'
 
 
 def _locate_cfg_file(cfg_file_names, file_type):
@@ -281,7 +284,6 @@ def _download_cert(order_id, file_path=None, domain=None, verbose=False):
             if isinstance(certificates, str):
                 # then we know this is a zip file containing all certs
                 zip_file = ZipFile(StringIO(certificates))
-                #zip_file.extractall(file_path)
                 tmp_dir = tempfile.gettempdir()
                 zip_file.extractall(tmp_dir)
 
