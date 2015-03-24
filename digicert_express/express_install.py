@@ -58,12 +58,11 @@ def run():
                           help="Domain to verify after the restart")
     parser_a.set_defaults(func=restart_apache)
 
-    parser_b = subparsers.add_parser('configure_apache', help='Update Apache configuration with SSL settings')
+    parser_b = subparsers.add_parser("configure_apache", help="Update Apache configuration with SSL settings")
     parser_b.add_argument("--domain", action="store", help="Domain name to secure")
     parser_b.add_argument("--cert", action="store", help="Absolute path to certificate file")
     parser_b.add_argument("--key", action="store", help="Absolute path to private key file")
-    parser_b.add_argument("--chain", action="store",
-                          help="Absolute path to the certificate chain (intermediate)")
+    parser_b.add_argument("--chain", action="store", help="Absolute path to the certificate chain (intermediate)")
     parser_b.add_argument("--apache_config", action="store", default=None,
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
@@ -100,7 +99,7 @@ def restart_apache(args):
     _restart_apache(args.domain)
 
 
-def _restart_apache(domain):
+def _restart_apache(domain=''):
     print "\nRestarting your apache server"
 
     distro_name = _determine_platform()
@@ -115,20 +114,23 @@ def _restart_apache(domain):
         site_result = _check_for_site_availability(domain)
         ssl_result = _check_for_site_openssl(domain)
 
-        site_result = False
-        ssl_result = False
-        apache_process_result = _check_for_apache_process(distro_name)
         if apache_process_result:
             site_result = _check_for_site_availability(domain)
             if site_result:
                 ssl_result = _check_for_site_openssl(domain)
 
-        if not apache_process_result or not site_result or not ssl_result:
-            print "An error occurred starting apache.  Please restore your previous configuration file"
+        if not apache_process_result:
+            print "Error: Apache did not restart successfully."
+
+        if not site_result:
+            print "Error: Could not connect to the domain %s via HTTPS." % domain
+
+        if not ssl_result:
+            print "Error: Could not connect"
 
 
 def configure_apache(args):
-    print "my job is to parse the apache configuration file and store a backup and update the ssl config"
+    print "Updating the Apache configuration with SSL settings"
     domain = args.domain
     cert = args.cert
     chain = args.chain
@@ -492,7 +494,7 @@ def _enable_ssl_mod():
     if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
         try:
             subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
-            # TODO: add method to restart apache here
+            _restart_apache()
         except (OSError, subprocess.CalledProcessError) as err:
             raise Exception("There was a problem enabling mod_ssl.  Run 'sudo a2enmod ssl' to enable it or check the apache log for more information")
 
