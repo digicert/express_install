@@ -132,7 +132,55 @@ def _restart_apache(domain):
 
 def parse_apache(args):
     print "my job is to parse the apache configuration file and store a backup and update the ssl config"
-    _parse_apache(args.domain, args.cert, args.key, args.chain, args.apache_config)
+    domain = args.domain
+    cert = args.cert
+    chain = args.chain
+    key = args.key
+
+    if not domain:
+        order = _select_from_orders()
+        if order:
+            domain = order['certificate']['common_name']
+            common_name = domain
+    else:
+        order = _get_order_by_domain(domain)
+        if order:
+            common_name = order['certificate']['common_name']
+
+    if not cert:
+        # look for the cert in /etc/digicert
+        file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".crt")
+        if os.path.exists(file_path):
+            cert = file_path
+        else:
+            while not cert:
+                cert = raw_input("We were unable to find your certificate.  "
+                                 "Please enter the file path of your certificate: ")
+    if not chain:
+        # look for the cert in /etc/digicert
+        file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".pem")
+        if os.path.exists(file_path):
+            chain = file_path
+        else:
+            file_path = os.path.join(CFG_PATH, "DigiCertCA.crt")
+            if os.path.exists(file_path):
+                chain = file_path
+            else:
+                while not chain:
+                    chain = raw_input("We were unable to find your chain (intermediate) certificate.  "
+                                      "Please enter the file path of your chain (intermediate) certificate: ")
+
+    if not key:
+        # look for the cert in /etc/digicert
+        file_path = os.path.join(CFG_PATH, common_name.replace(".", "_") + ".key")
+        if os.path.exists(file_path):
+            key = file_path
+        else:
+            while not key:
+                key = raw_input("We were unable to find your key.  "
+                                "Please enter the file path of your key: ")
+
+    _parse_apache(domain, cert, key, chain, args.apache_config)
 
 
 def _parse_apache(host, cert, key, chain, apache_config=None):
@@ -145,7 +193,6 @@ def _parse_apache(host, cert, key, chain, apache_config=None):
     apache_parser.set_certificate_directives(virtual_host)
 
     _enable_ssl_mod()
-
 
 
 def _normalize_cfg_file(cfg_file):
