@@ -92,6 +92,8 @@ def run():
     args = parser.parse_args()
 
     try:
+        if args.verbose:
+            print '\nDigiCert Express Install\n'
         args.func(args)
     except Exception, e:
         print e.message + "\n"
