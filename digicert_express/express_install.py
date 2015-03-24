@@ -53,6 +53,7 @@ def run():
                                      version='1.0')
 
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
+
     parser_a = subparsers.add_parser('restart_apache', help='Restart Apache and verify SSL configuration')
     parser_a.add_argument("--domain", action="store", nargs="?",
                           help="Domain to verify after the restart")
@@ -78,6 +79,7 @@ def run():
     parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
     parser_e.add_argument("--api_key", action="store", nargs="?",
                           help="Skip authentication step with a DigiCert API key")
+    parser_e.add_argument("--verbose", action="store_true", help="Display verbose output")
     parser_e.set_defaults(func=download_cert)
 
     parser_g = subparsers.add_parser("all", help='Download your certificate and secure your domain in one step')
@@ -192,11 +194,20 @@ def download_cert(args):
         order_id = order['id']
         domain = order['certificate']['common_name']
 
-    _download_cert(order_id, CFG_PATH, domain)
+    _download_cert(order_id, CFG_PATH, domain, args.verbose)
 
 
-def _download_cert(order_id, file_path=None, domain=None):
-    print "\nDownloading certificate files from digicert.com with order_id %s" % order_id
+def _download_cert(order_id, file_path=None, domain=None, verbose=False):
+    print '' # get a newline
+
+    if verbose:
+        msg_downloading = 'Downloading certificate files for'
+        msg_from_dc = 'from digicert.com'
+        if domain:
+            print '%s domain "%s" %s (Order ID: %s)...' % (msg_downloading, domain, msg_from_dc, order_id)
+        else:
+            print '%s order ID "%s" %s...' % (msg_downloading, order_id, msg_from_dc)
+
     global API_KEY
 
     if not API_KEY:
@@ -213,6 +224,8 @@ def _download_cert(order_id, file_path=None, domain=None):
             # create the download directory if it does not exist
             if file_path and not os.path.exists(file_path):
                 os.mkdir(file_path)
+                if verbose:
+                    print 'Created %s directory...' % file_path
 
             if isinstance(certificates, str):
                 # then we know this is a zip file containing all certs
@@ -223,10 +236,12 @@ def _download_cert(order_id, file_path=None, domain=None):
 
                 # get the files that were extracted
                 cert_dir = os.path.join(tmp_dir, "certs")
-                cert_file_path = os.path.join(cert_dir, '{0}.crt'.format(domain.replace(".", "_")))
-                chain_file_path = os.path.join(cert_dir, 'DigiCertCA.crt')
-                _copy_cert(cert_file_path, '%s/%s' % (file_path, os.path.basename(cert_file_path)))
-                _copy_cert(chain_file_path, '%s/%s' % (file_path, os.path.basename(chain_file_path)))
+                src_cert_file_path = os.path.join(cert_dir, '{0}.crt'.format(domain.replace(".", "_")))
+                src_chain_file_path = os.path.join(cert_dir, 'DigiCertCA.crt')
+                cert_file_path = os.path.join(file_path, os.path.basename(src_cert_file_path))
+                chain_file_path = os.path.join(file_path, os.path.basename(src_chain_file_path))
+                _copy_cert(src_cert_file_path, cert_file_path)
+                _copy_cert(src_chain_file_path, chain_file_path)
             else:
                 certificates = certificates.get('certificates')
                 if not certificates:
@@ -249,6 +264,12 @@ def _download_cert(order_id, file_path=None, domain=None):
                 chain_file.close()
         except IOError as ioe:
             raise Exception("Download failed: {0}".format(ioe))
+
+        if verbose:
+            print 'Created certificate file at path %s...' % cert_file_path
+            print 'Created certificate chain file at path %s...' % chain_file_path
+
+        print 'Certificate files downloaded successfully.'
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
