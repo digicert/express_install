@@ -185,7 +185,7 @@ class BaseParser(object):
                                 if self.domain.split('.', 1)[1] == aug_domain:
                                     return vhost
                             else:
-                                if aug_domain == 'www.%' % self.domain:
+                                if aug_domain == 'www.%s' % self.domain:
                                     return vhost
 
     def _create_secure_vhost(self, vhost):
