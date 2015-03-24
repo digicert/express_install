@@ -80,11 +80,6 @@ def run():
     #                       help="Where should I store the certificate files? (default: /etc/digicert")
     parser_e.set_defaults(func=download_cert)
 
-    parser_f = subparsers.add_parser('copy_cert', help='Activate certificate')
-    parser_f.add_argument("--cert_path", action="store", help="Path to the cert")
-    parser_f.add_argument("--apache_path", action="store", help="Path to store the cert")
-    parser_f.set_defaults(func=copy_cert)
-
     parser_g = subparsers.add_parser("all", help='Download and Configure your certificate in one step')
     parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
     parser_g.add_argument("--key", action="store",
@@ -382,9 +377,6 @@ def _create_csr(server_name, org, city, state, country, key_size=2048):
         raise Exception("ERROR: An error occurred while attempting to create your CSR file.  Please try running {0} "
                         "manually and re-run this application with the CSR file location "
                         "as part of the arguments.".format(csr_cmd))
-
-def copy_cert(args):
-    _copy_cert(args.cert_path, args.apache_path)
 
 
 def _copy_cert(cert_path, apache_path):
