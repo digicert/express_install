@@ -85,6 +85,7 @@ def run():
     all_parser.add_argument("--key", action="store", help="Path to private key file used to order certificate")
     all_parser.add_argument("--api_key", action="store", help="Skip authentication step with a DigiCert API key")
     all_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
+    all_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
     all_parser.set_defaults(func=do_everything)
 
     args = parser.parse_args()
@@ -252,8 +253,6 @@ def download_cert(args):
 
 
 def _download_cert(order_id, file_path=None, domain=None, verbose=False):
-    print ''  # get a newline
-
     if verbose:
         msg_downloading = 'Downloading certificate files for'
         msg_from_dc = 'from digicert.com'
@@ -436,14 +435,12 @@ def _select_from_orders():
         # there is only one order, choose it
         order_id = orders[0]['id']
         domain = orders[0]['certificate']['common_name']
-        if raw_input("Continue with order #{0} ({1})? (Y/n)".format(order_id, domain)) != 'n':
+        if raw_input("Continue with certificate #{0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
             resp = 1
         else:
-            raise Exception("")
+            raise Exception("No certificate selected; aborting.")
 
     selection = int(resp) - 1
-
-    print "Order {0}: {1}".format(orders[selection]['id'], orders[selection]['certificate']['common_name'])
     return orders[selection]
 
 
