@@ -52,43 +52,40 @@ def run():
     parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!',
                                      version='1.0')
 
-    subparsers = parser.add_subparsers(help='Choose a command')
-    parser_a = subparsers.add_parser('restart_apache', help='Restart apache and verify SSL configuration')
+    subparsers = parser.add_subparsers(help='Choose from the command options below:')
+    parser_a = subparsers.add_parser('restart_apache', help='Restart Apache and verify SSL configuration')
     parser_a.add_argument("--domain", action="store", nargs="?",
-                          help="I'll verify the domain is running after the restart")
+                          help="Domain to verify after the restart")
     parser_a.set_defaults(func=restart_apache)
 
-    parser_b = subparsers.add_parser('parse_apache', help='Parse and update apache configuration with SSL settings')
-    parser_b.add_argument("--domain", action="store", help="I need a domain/host to update")
-    parser_b.add_argument("--cert", action="store", help="I need the path to the certificate")
-    parser_b.add_argument("--key", action="store", help="I need the path to the key")
+    parser_b = subparsers.add_parser('configure_apache', help='Update Apache configuration with SSL settings')
+    parser_b.add_argument("--domain", action="store", help="Domain name to secure")
+    parser_b.add_argument("--cert", action="store", help="Absolute path to certificate file")
+    parser_b.add_argument("--key", action="store", help="Absolute path to private key file")
     parser_b.add_argument("--chain", action="store",
-                          help="I need the path to the certificate chain (intermediate)")
+                          help="Absolute path to the certificate chain (intermediate)")
     parser_b.add_argument("--apache_config", action="store", default=None,
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
-    parser_b.set_defaults(func=parse_apache)
+    parser_b.set_defaults(func=configure_apache)
 
     parser_c = subparsers.add_parser('dep_check',
-                                     help="I'll check that you have all needed software and install it for you")
+                                     help="Check for and install any needed dependencies")
     parser_c.set_defaults(func=check_for_deps)
 
     parser_e = subparsers.add_parser('download_cert', help='Download certificate files from DigiCert')
-    parser_e.add_argument("--order_id", action="store", help="I need an order_id")
+    parser_e.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
     parser_e.add_argument("--domain", action="store", help="Domain name for the certificate")
-    parser_e.add_argument("--api_key", action="store", nargs="?", help="I need an API Key")
-    # parser_e.add_argument("--file_path", action="store", default="/etc/digicert",
-    #                       help="Where should I store the certificate files? (default: /etc/digicert")
+    parser_e.add_argument("--api_key", action="store", nargs="?",
+                          help="Skip authentication step with a DigiCert API key")
     parser_e.set_defaults(func=download_cert)
 
-    parser_g = subparsers.add_parser("all", help='Download and Configure your certificate in one step')
-    parser_g.add_argument("--domain", action="store", help="I need a domain to secure")
+    parser_g = subparsers.add_parser("all", help='Download your certificate and secure your domain in one step')
+    parser_g.add_argument("--domain", action="store", help="Domain name to secure")
     parser_g.add_argument("--key", action="store",
-                          help="I need the path to the key file (if you already have submitted the csr for your order)")
-    # parser_g.add_argument("--file_path", action="store", default="/etc/digicert",
-    #                       help="Where should I store the certificate files? (default: /etc/digicert")
-    parser_g.add_argument("--api_key", action="store", help="I need an API Key")
-    parser_g.add_argument("--order_id", action="store", help="I need an order_id")
+                          help="Path to private key file used to order certificate")
+    parser_g.add_argument("--api_key", action="store", help="Skip authentication step with a DigiCert API key")
+    parser_g.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
     parser_g.set_defaults(func=do_everything)
 
     args = parser.parse_args()
@@ -130,7 +127,7 @@ def _restart_apache(domain):
             print "An error occurred starting apache.  Please restore your previous configuration file"
 
 
-def parse_apache(args):
+def configure_apache(args):
     print "my job is to parse the apache configuration file and store a backup and update the ssl config"
     domain = args.domain
     cert = args.cert
@@ -180,10 +177,10 @@ def parse_apache(args):
                 key = raw_input("We were unable to find your key.  "
                                 "Please enter the file path of your key: ")
 
-    _parse_apache(domain, cert, key, chain, args.apache_config)
+    _configure_apache(domain, cert, key, chain, args.apache_config)
 
 
-def _parse_apache(host, cert, key, chain, apache_config=None):
+def _configure_apache(host, cert, key, chain, apache_config=None):
     cert = _normalize_cfg_file(cert)
     key = _normalize_cfg_file(key)
     chain = _normalize_cfg_file(chain)
@@ -483,7 +480,7 @@ def do_everything(args):
         cert = certs['cert']
 
         # make the changes to apache
-        _parse_apache(domain, cert, key, chain)
+        _configure_apache(domain, cert, key, chain)
 
         _restart_apache(domain)
     else:
