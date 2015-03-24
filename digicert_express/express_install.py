@@ -346,13 +346,19 @@ def _get_order_by_domain(domain):
 
 def _select_from_orders():
     orders = _get_valid_orders()
-    i = 1
-    for order in orders:
-        print "{0}.\t{1}".format(i, order['certificate']['common_name'])
-        i += 1
     resp = None
     while not resp or resp == "" or resp.isalpha():
+        i = 1
+        for order in orders:
+            print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+            i += 1
+
         resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
+
+        if resp.isalpha() or int(resp) > len(orders) or int(resp) < 0:
+            resp = None
+            print "\nERROR: Invalid number, please try again.\n"
+
     selection = int(resp) - 1
 
     print "You selected: {0}\n".format(orders[selection]['certificate']['common_name'])
