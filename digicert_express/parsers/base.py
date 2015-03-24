@@ -39,9 +39,9 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
-        verify_file(cert_path, "Certificate file", apache_user, storage_path, verbose)
-        verify_file(key_path, "Key file", apache_user, storage_path, verbose)
-        verify_file(chain_path, "CA Chain file", apache_user, storage_path, verbose)
+        verify_and_normalize_file(cert_path, "Certificate file", apache_user, storage_path, verbose)
+        verify_and_normalize_file(key_path, "Key file", apache_user, storage_path, verbose)
+        verify_and_normalize_file(chain_path, "CA Chain file", apache_user, storage_path, verbose)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -357,13 +357,16 @@ class BaseParser(object):
         self.aug.load()
 
 
-def verify_file(file_path, desc, apache_user, storage_path, verbose=False):
+def verify_and_normalize_file(file_path, desc, apache_user, storage_path, verbose=False):
 
     """
-    Verify that the file exists and the user has the necessary permissions to this file
+    Verify that the file exists, move it to a common location, & set the proper permissions
 
-    :param file_path
-    :param apache_user
+    :param file_path  the file to verify/normalize
+    :param desc  what kind of file is this? for output purposes only
+    :param apache_user  the user apache runs as
+    :param storage_path  where to store the file
+    :param verbose  whether or not to print more output
     :return:
     """
 
