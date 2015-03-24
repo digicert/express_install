@@ -177,8 +177,16 @@ class BaseParser(object):
                 check_matches = self.aug.match("{0}/*[self::directive=~regexp('{1}')]".format(vhost, create_regex("ServerName")))
                 if check_matches:
                     for check in check_matches:
-                        if self.aug.get(check + "/arg") and self.aug.get(check + "/arg") == self.domain:
-                            return vhost
+                        if self.aug.get(check + "/arg"):
+                            aug_domain = self.aug.get(check + "/arg")
+                            if aug_domain == self.domain:
+                                return vhost
+                            if self.domain.startswith('www.'):
+                                if self.domain.split('.', 1)[1] == aug_domain:
+                                    return vhost
+                            else:
+                                if aug_domain == 'www.%' % self.domain:
+                                    return vhost
 
     def _create_secure_vhost(self, vhost):
         secure_vhost = None
