@@ -7,6 +7,7 @@ import getpass
 from httplib import HTTPSConnection
 import apt.cache
 import time
+import tempfile
 
 from zipfile import ZipFile
 from StringIO import StringIO
@@ -210,15 +211,23 @@ def _download_cert(order_id, file_path=None, domain=None):
         chain_file_path = os.path.join(file_path, 'chain.pem')
 
         try:
+            # create the download directory if it does not exist
+            if file_path and not os.path.exists(file_path):
+                os.mkdir(file_path)
+
             if isinstance(certificates, str):
                 # then we know this is a zip file containing all certs
                 zip_file = ZipFile(StringIO(certificates))
-                zip_file.extractall(file_path)
+                #zip_file.extractall(file_path)
+                tmp_dir = tempfile.gettempdir()
+                zip_file.extractall(tmp_dir)
 
                 # get the files that were extracted
-                file_path = os.path.join(file_path, "certs")
-                cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
-                chain_file_path = os.path.join(file_path, 'DigicertCA.crt')
+                cert_dir = os.path.join(tmp_dir, "certs")
+                cert_file_path = os.path.join(cert_dir, '{0}.crt'.format(domain.replace(".", "_")))
+                chain_file_path = os.path.join(cert_dir, 'DigiCertCA.crt')
+                _copy_cert(cert_file_path, '%s/%s' % (file_path, os.path.basename(cert_file_path)))
+                _copy_cert(chain_file_path, '%s/%s' % (file_path, os.path.basename(chain_file_path)))
             else:
                 certificates = certificates.get('certificates')
                 if not certificates:
@@ -227,10 +236,6 @@ def _download_cert(order_id, file_path=None, domain=None):
                 if domain:
                     cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
                     chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
-
-                # create the download directory if it does not exist
-                if file_path and not os.path.exists(file_path):
-                    os.mkdir(file_path)
 
                 # download the certificate
                 cert = certificates.get('certificate')
