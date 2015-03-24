@@ -15,21 +15,22 @@ then
 elif [ -f /etc/debian_version ]; then
         os="Debian $(cat /etc/debian_version)"
 elif [ -f /etc/centos-release ]; then
+        os=`cat /etc/centos-release`
+elif [ -f /etc/redhat-release ]; then
         os=`cat /etc/redhat-release`
 else
         os="$(uname -s) $(uname -r)"
 fi
-#echo $os
 
 
 # check for architecture 32 bit or 64 bit
 MACHINE_TYPE=`uname -m`
 if [ ${MACHINE_TYPE} = "x86_64" ]; then
     # 64-bit stuff here
-    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 openssl"
+    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools libaugeas0 openssl python-pip"
 else
   # 32-bit stuff here
-    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools:i386 libaugeas0:i386 openssl"
+    CHECK_INSTALL_PACKAGES="augeas-lenses augeas-tools:i386 libaugeas0:i386 openssl python-pip"
 fi
 
 
@@ -94,4 +95,16 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
         echo "Aborting installation."
         exit
     fi
+fi
+
+
+LINK_PATH=`find /usr/local/lib -name express_install.py`
+if [ -z "${LINK_PATH}" ]; then
+    LINK_PATH=`find /usr/lib -name express_install.py`
+    if [ -z "${LINK_PATH}" ]; then
+        LINK_PATH=`find /usr -name express_install.py`
+    fi
+else
+    sudo ln -s $LINK_PATH /usr/local/bin/express_install
+    sudo chmod 755 ${LINK_PATH}
 fi
