@@ -104,37 +104,41 @@ def restart_apache(args):
         if order:
             domain = order['certificate']['common_name']
 
-    _restart_apache(domain)
+    _restart_apache(domain, args.verbose)
 
 
-def _restart_apache(domain=''):
-    print "\nRestarting your apache server"
+def _restart_apache(domain='', verbose=False):
+    if verbose:
+        print "Restarting your apache server"
 
     distro_name = _determine_platform()
     command = APACHE_COMMANDS.get(distro_name)
-    print subprocess.call(command, shell=True)
+    subprocess.call(command, shell=True)
 
     if domain:
-        print 'waiting for apache process...'
-        time.sleep(4)
-
         apache_process_result = _check_for_apache_process(distro_name)
-        site_result = _check_for_site_availability(domain)
-        ssl_result = _check_for_site_openssl(domain)
-
         if apache_process_result:
-            site_result = _check_for_site_availability(domain)
+            site_result = _check_for_site_availability(domain, verbose)
             if site_result:
-                ssl_result = _check_for_site_openssl(domain)
+                ssl_result = _check_for_site_openssl(domain, verbose)
 
+        have_error = False
         if not apache_process_result:
             print "Error: Apache did not restart successfully."
+            have_error = True
 
         if not site_result:
             print "Error: Could not connect to the domain %s via HTTPS." % domain
+            have_error = True
 
         if not ssl_result:
             print "Error: Could not connect"
+            have_error = True
+
+        if not have_error:
+            print 'Apache restarted successfully.'
+
+
 
 
 def configure_apache(args):
@@ -361,8 +365,6 @@ def create_csr_from_order(args):
 
 def _get_order_info(order_id):
     global API_KEY
-    print "my job is to get the order info for the certificate from digicert.com using the digicert_client module " \
-          "with order_id %s" % order_id
 
     if not API_KEY:
         API_KEY = _get_temp_api_key()
@@ -563,28 +565,33 @@ def _check_for_apache_process(platform_name):
         return False
 
 
-def _check_for_site_availability(domain):
+def _check_for_site_availability(domain, verbose=False):
     # For simply checking that the site is available HTTPSConnection is good enough
-    print "verifying {0} is available over HTTPS".format(domain)
+    if verbose:
+        print "Verifying {0} is available over HTTPS...".format(domain)
     conn = HTTPSConnection(domain)
     conn.request('GET', '/')
     response = conn.getresponse()
-    site_status = False
-    if response.status == 200:
+    site_status = (response.status == 200)
+    if site_status and verbose:
         print "{0} is reachable over HTTPS".format(domain)
-        site_status = True
-
     return site_status
 
 
-def _check_for_site_openssl(domain):
-    # openssl s_client -connect domain.com:443
-    print "validating the SSL configuration for {0}".format(domain)
+def _check_for_site_openssl(domain, verbose=False):
+    if verbose:
+        print "Validating the SSL configuration for {0}...".format(domain)
     process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
     site_status = False
-    if 'CONNECTED' in process:
+    if isinstance(process, basestring):
+        site_status = 'CONNECTED' in process
+    else:
+        for line in process:
+            if 'CONNECTED' in line:
+                site_status = True
+                break
+    if site_status and verbose:
         print "SSL configuration for {0} is valid".format(domain)
-        site_status = True
     return site_status
 
 
