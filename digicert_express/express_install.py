@@ -49,7 +49,8 @@ def run():
         print 'DigiCert Express Install must be run as root.'
         exit()
 
-    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!', version='1.0')
+    parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!  '
+                                                 'Run the following commands in the order shown below, or choose "all" to do everything in one step.', version='1.0')
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
 
     dependancy_check_parser = subparsers.add_parser('dep_check', help="Check for and install any needed dependencies")
