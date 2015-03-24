@@ -78,6 +78,7 @@ def run():
 
     restart_apache_parser = subparsers.add_parser('restart_apache', help='Restart Apache and verify SSL configuration')
     restart_apache_parser.add_argument("--domain", action="store", nargs="?", help="Domain to verify after the restart")
+    restart_apache_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
     restart_apache_parser.set_defaults(func=restart_apache)
 
     all_parser = subparsers.add_parser("all", help='Download your certificate and secure your domain in one step')
@@ -441,7 +442,7 @@ def _select_from_orders():
         # there is only one order, choose it
         order_id = orders[0]['id']
         domain = orders[0]['certificate']['common_name']
-        if raw_input("Continue with certificate #{0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
+        if raw_input("Continue with certificate {0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
             resp = 1
         else:
             raise Exception("No certificate selected; aborting.")
