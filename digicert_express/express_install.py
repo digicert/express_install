@@ -33,8 +33,8 @@ APACHE_PROCESS_NAMES = {
     'Ubuntu': 'apache2'
 }
 
-DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'python-augeas', 'openssl', 'python-pip']
-DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'python-augeas', 'openssl', 'python-pip']
+DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'openssl', 'python-pip']
+DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'openssl', 'python-pip']
 
 RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip', 'mod_ssl']
 
