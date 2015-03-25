@@ -97,14 +97,14 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
     fi
 fi
 
-
-LINK_PATH=`find /usr/local/lib -name express_install.py`
-if [ -z "${LINK_PATH}" ]; then
-    LINK_PATH=`find /usr/lib -name express_install.py`
-    if [ -z "${LINK_PATH}" ]; then
-        LINK_PATH=`find /usr -name express_install.py`
-    fi
-else
-    sudo ln -s $LINK_PATH /usr/local/bin/express_install
-    sudo chmod 755 ${LINK_PATH}
+LINK_PATH="`pip show digicert-express | grep Location | cut -d ':' -f 2 | tr -d '[[:space:]]'`/digicert_express/express_install.py"
+if [ -e "$LINK_PATH" ]; then
+        sudo ln -s "$LINK_PATH" /usr/local/bin/express_install
+        sudo chmod 755 "$LINK_PATH"
+	echo ""
+	echo "DigiCert Express Install has been installed on your system."
+	echo "As root, run 'express_install all' to install your certificate,"
+	echo "or 'express_install --help' for more information."
+	echo ""
 fi
+
