@@ -526,14 +526,14 @@ def do_everything(args):
                 domain = certificate['common_name']
                 common_name = domain
 
-        certs = _download_cert(order_id, CFG_PATH, common_name)
+        certs = _download_cert(order_id, CFG_PATH, common_name, verbose=args.verbose)
         chain = certs['chain']
         cert = certs['cert']
 
         # make the changes to apache
-        _configure_apache(domain, cert, key, chain)
+        _configure_apache(domain, cert, key, chain, verbose=args.verbose)
 
-        _restart_apache(domain)
+        _restart_apache(domain, verbose=args.verbose)
     else:
         print "ERROR: You must specify a valid domain or order id"
 
