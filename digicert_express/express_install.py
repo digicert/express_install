@@ -103,13 +103,7 @@ def run():
 
 
 def restart_apache(args):
-    domain = args.domain
-    if not domain:
-        order = _select_from_orders()
-        if order:
-            domain = order['certificate']['common_name']
-
-    _restart_apache(domain, args.verbose)
+    _restart_apache(args.domain, args.verbose)
 
 
 def _restart_apache(domain='', verbose=False):
@@ -120,17 +114,17 @@ def _restart_apache(domain='', verbose=False):
     command = APACHE_COMMANDS.get(distro_name)
     subprocess.call(command, shell=True)
 
-    if domain:
-        apache_process_result = _check_for_apache_process(distro_name)
-        if apache_process_result:
-            site_result = _check_for_site_availability(domain, verbose)
-            if site_result:
-                ssl_result = _check_for_site_openssl(domain, verbose)
+    have_error = False
+    apache_process_result = _check_for_apache_process(distro_name)
 
-        have_error = False
-        if not apache_process_result:
-            print "Error: Apache did not restart successfully."
-            have_error = True
+    if not apache_process_result:
+        print "Error: Apache did not restart successfully."
+        have_error = True
+
+    if domain and apache_process_result:
+        site_result = _check_for_site_availability(domain, verbose)
+        if site_result:
+            ssl_result = _check_for_site_openssl(domain, verbose)
 
         if not site_result:
             print "Error: Could not connect to the domain %s via HTTPS." % domain
@@ -140,8 +134,8 @@ def _restart_apache(domain='', verbose=False):
             print "Error: Could not connect"
             have_error = True
 
-        if not have_error:
-            print 'Apache restarted successfully.'
+    if not have_error:
+        print 'Apache restarted successfully.'
 
 
 
