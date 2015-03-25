@@ -56,6 +56,7 @@ def run():
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
 
     dependency_check_parser = subparsers.add_parser('dep_check', help="Check for and install any needed dependencies")
+    dependency_check_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
     dependency_check_parser.set_defaults(func=check_for_deps)
 
 
@@ -488,6 +489,10 @@ def _copy_cert(cert_path, apache_path):
 def do_everything(args):
     global API_KEY
     API_KEY = args.api_key
+
+    # check the dependencies
+    check_for_deps(args)
+
     order_id = args.order_id
     domain = args.domain
     key = args.key
