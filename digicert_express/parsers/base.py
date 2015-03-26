@@ -43,9 +43,12 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
-        cert_path = verify_and_normalize_file(cert_path, "Certificate file", apache_user, storage_path, verbose)
-        chain_path = verify_and_normalize_file(chain_path, "CA Chain file", apache_user, storage_path, verbose)
-        key_path = verify_and_normalize_file(key_path, "Key file", apache_user, storage_path, verbose)
+        cert_path = verify_and_normalize_file(cert_path, "Certificate file", domain.replace(".", "_") + ".crt",
+                                              apache_user, storage_path, verbose, dry_run)
+        chain_path = verify_and_normalize_file(chain_path, "CA Chain file", domain.replace(".", "_") + ".pem",
+                                               apache_user, storage_path, verbose, dry_run)
+        key_path = verify_and_normalize_file(key_path, "Key file", domain.replace(".", "_") + ".key",
+                                             apache_user, storage_path, verbose, dry_run)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -414,13 +417,14 @@ class BaseParser(object):
             self.aug.load()
 
 
-def verify_and_normalize_file(file_path, desc, apache_user, storage_path, verbose=False):
+def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, verbose=False, dry_run=False):
 
     """
     Verify that the file exists, move it to a common location, & set the proper permissions
 
     :param file_path  the file to verify/normalize
     :param desc  what kind of file is this? for output purposes only
+    :param name what the new file name should be
     :param apache_user  the user apache runs as
     :param storage_path  where to store the file
     :param verbose  whether or not to print more output
@@ -432,12 +436,14 @@ def verify_and_normalize_file(file_path, desc, apache_user, storage_path, verbos
 
     # copy the files to the storage path if they aren't already there
     path = os.path.dirname(file_path)
-    name = os.path.basename(file_path)
-    if storage_path != path:
+    old_name = os.path.basename(file_path)
+    if storage_path != path or old_name != name:
         normalized_cfg_file = '%s/%s' % (storage_path, name)
-        shutil.copy(file_path, normalized_cfg_file)
-        if verbose:
-            print 'Copied %s to %s...' % (file_path, normalized_cfg_file)
+        print 'Copied %s to %s...' % (file_path, normalized_cfg_file)
+        if not dry_run:
+            shutil.copy(file_path, normalized_cfg_file)
+            if verbose:
+                print 'Copied %s to %s...' % (file_path, normalized_cfg_file)
         file_path = normalized_cfg_file
 
     # change the owners of the ssl files
