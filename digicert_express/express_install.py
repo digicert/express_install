@@ -77,6 +77,7 @@ def run():
                           help="If you know the path your Virtual Host file or main Apache configuration file please "
                                "include it here, if not we will try to find it for you")
     configure_apache_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
+    configure_apache_parser.add_argument("--dry_run", action="store_true", help="Display what changes will be made without making any changes")
     configure_apache_parser.set_defaults(func=configure_apache)
 
     restart_apache_parser = subparsers.add_parser('restart_apache', help='Restart Apache and verify SSL configuration')
@@ -90,6 +91,7 @@ def run():
     all_parser.add_argument("--api_key", action="store", help="Skip authentication step with a DigiCert API key")
     all_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
     all_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
+    all_parser.add_argument("--dry_run", action="store_true", help="Display what changes will be made without making any changes")
     all_parser.set_defaults(func=do_everything)
 
     args = parser.parse_args()
@@ -177,9 +179,10 @@ def configure_apache(args):
             print 'No valid private key file located; aborting.'
             return
 
-    _configure_apache(domain, cert, key, chain, args.apache_config, args.verbose)
+    _configure_apache(domain, cert, key, chain, args.apache_config, args.verbose, args.dry_run)
 
-    print 'Please restart Apache for your changes to take effect.'
+    if not args.dry_run:
+        print 'Please restart Apache for your changes to take effect.'
 
 
 def _locate_cfg_file(cfg_file_names, file_type):
@@ -206,11 +209,10 @@ def _locate_cfg_file(cfg_file_names, file_type):
     return file_path
 
 
-
-def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False):
+def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False, dry_run=False):
     if verbose:
         print 'Parsing Apache configuration...'
-    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH)
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
@@ -220,7 +222,8 @@ def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False)
 
     _enable_ssl_mod(verbose)
 
-    print 'Apache configuration updated successfully.'
+    if not dry_run:
+        print 'Apache configuration updated successfully.'
 
 
 def _get_temp_api_key():
@@ -525,9 +528,10 @@ def do_everything(args):
         cert = certs['cert']
 
         # make the changes to apache
-        _configure_apache(domain, cert, key, chain, verbose=args.verbose)
+        _configure_apache(domain, cert, key, chain, verbose=args.verbose, dry_run=args.dry_run)
 
-        _restart_apache(domain, verbose=args.verbose)
+        if not args.dry_run:
+            _restart_apache(domain, verbose=args.verbose)
     else:
         print "ERROR: You must specify a valid domain or order id"
 
