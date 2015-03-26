@@ -20,10 +20,10 @@ from digicert_client import CertificateOrder, Request
 
 
 APACHE_COMMANDS = {
-    'LinuxMint': 'sudo service apache2 restart',
-    'CentOS': 'sudo service httpd restart',
-    'Debian': 'sudo /etc/init.d/apache2 restart',
-    'Ubuntu': 'sudo service apache2 restart'
+    'LinuxMint': 'service apache2 restart',
+    'CentOS': 'service httpd restart',
+    'Debian': '/etc/init.d/apache2 restart',
+    'Ubuntu': 'service apache2 restart'
 }
 
 APACHE_PROCESS_NAMES = {
