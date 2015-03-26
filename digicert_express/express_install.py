@@ -439,9 +439,14 @@ def _select_from_orders():
 
             resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
 
-            if resp.isalpha() or int(resp) > len(orders) or int(resp) < 0:
+            # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
+            try:
+                if int(resp) > len(orders) or int(resp) < 0:
+                    raise Exception
+            except Exception as e:
                 resp = None
                 print "\nERROR: Invalid number, please try again.\n"
+
     else:
         # there is only one order, choose it
         order_id = orders[0]['id']
