@@ -436,15 +436,18 @@ def _select_from_orders():
                 print "{0}.\t{1}".format(i, order['certificate']['common_name'])
                 i += 1
 
-            resp = raw_input("\nPlease select the domain you wish to secure from the list above: ")
+            resp = raw_input("\nPlease select the domain you wish to secure from the list above (q to quit): ")
 
-            # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
-            try:
-                if int(resp) > len(orders) or int(resp) < 0:
-                    raise Exception
-            except Exception as e:
-                resp = None
-                print "\nERROR: Invalid number, please try again.\n"
+            if resp != 'q':
+                # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
+                try:
+                    if int(resp) > len(orders) or int(resp) < 0:
+                        raise Exception
+                except Exception as e:
+                    resp = None
+                    print "\nERROR: Invalid number, please try again.\n"
+            else:
+                raise Exception("No domain selected; aborting.")
 
     else:
         # there is only one order, choose it
