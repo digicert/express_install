@@ -20,10 +20,10 @@ from digicert_client import CertificateOrder, Request
 
 
 APACHE_COMMANDS = {
-    'LinuxMint': 'sudo service apache2 restart',
-    'CentOS': 'sudo service httpd restart',
-    'Debian': 'sudo /etc/init.d/apache2 restart',
-    'Ubuntu': 'sudo service apache2 restart'
+    'LinuxMint': 'service apache2 restart',
+    'CentOS': 'service httpd restart',
+    'Debian': '/etc/init.d/apache2 restart',
+    'Ubuntu': 'service apache2 restart'
 }
 
 APACHE_PROCESS_NAMES = {
@@ -92,6 +92,7 @@ def run():
     all_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
     all_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
     all_parser.add_argument("--dry_run", action="store_true", help="Display what changes will be made without making any changes")
+    all_parser.add_argument("--restart_apache", action="store_true", help="Restart Apache server without prompting")
     all_parser.set_defaults(func=do_everything)
 
     args = parser.parse_args()
@@ -138,8 +139,6 @@ def _restart_apache(domain='', verbose=False):
 
     if not have_error:
         print 'Apache restarted successfully.'
-
-
 
 
 def configure_apache(args):
@@ -536,7 +535,10 @@ def do_everything(args):
         _configure_apache(domain, cert, key, chain, verbose=args.verbose, dry_run=args.dry_run)
 
         if not args.dry_run:
-            _restart_apache(domain, verbose=args.verbose)
+            if args.restart_apache or raw_input('Would you like to restart Apache now? (y/N) ') == 'y':
+                _restart_apache(domain, verbose=args.verbose)
+            else:
+                print 'Restart your Apache server for your changes to take effect.'
     else:
         print "ERROR: You must specify a valid domain or order id"
 
