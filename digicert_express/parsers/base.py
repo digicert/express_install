@@ -500,28 +500,19 @@ def format_config_file(host_file):
 
     try:
         format_lines(lines, f)
-        # tabs = ""
-        # for line in lines:
-        #     line = line.lstrip()
-        #     # check for the beginning of a tag, if found increase the indentation after writing the tag
-        #     if re.match("^<(\w+)", line):
-        #         f.write("{0}{1}\n".format(tabs, line))
-        #         tabs += "\t"
-        #     else:
-        #         # check for the end of a tag, if found decrease the indentation
-        #         if re.match("^</(\w+)", line):
-        #             if len(tabs) > 1:
-        #                 tabs = tabs[:-1]
-        #             else:
-        #                 tabs = ""
-        #         # write the config/tag
-        #         f.write("{0}{1}\n".format(tabs, line))
     finally:
         f.truncate()
         f.close()
 
 
 def format_dry_run(lines):
+    """
+    Format the changes that were going to be made to the apache configuration file.
+    Loop through the lines of the file and indent/un-indent where necessary
+
+    :param lines:
+    :return:
+    """
     import sys
     format_lines(lines, sys.stdout)
 
