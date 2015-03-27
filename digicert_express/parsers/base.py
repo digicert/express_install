@@ -439,7 +439,6 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     old_name = os.path.basename(file_path)
     if storage_path != path or old_name != name:
         normalized_cfg_file = '%s/%s' % (storage_path, name)
-        print 'Copied %s to %s...' % (file_path, normalized_cfg_file)
         if not dry_run:
             shutil.copy(file_path, normalized_cfg_file)
             if verbose:
