@@ -185,6 +185,7 @@ def configure_apache(args):
 
 
 def _locate_cfg_file(cfg_file_names, file_type):
+    print "Looking for {0}...".format(file_type)
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
     else:
@@ -193,6 +194,39 @@ def _locate_cfg_file(cfg_file_names, file_type):
         file_path = os.path.join(CFG_PATH, cfg_file_name)
         if os.path.exists(file_path):
             return file_path
+
+    # Search the filesystem
+    for cfg_file_name in names:
+        command = "find / -type f -name {0}".format(cfg_file_name)
+        files = os.popen(command).read().splitlines()
+        if len(files) > 0:
+            if len(files) == 1:
+                return files[0]
+            else:
+                resp = None
+                while not resp:
+                    for i in range(0, len(files)):
+                        print "{0}.\t{1}".format(i + 1, files[i])
+
+                    resp = raw_input("\nPlease select the {0} you wish to secure "
+                                     "from the list above (q to quit): ".format(file_type))
+
+                    if resp != 'q':
+                        # validate the input, catch any exceptions from casting to an int and validate the
+                        # int value makes sense
+                        try:
+                            if int(resp) > len(files) or int(resp) < 0:
+                                raise Exception
+                        except Exception as e:
+                            resp = None
+                            print "\nERROR: Invalid number, please try again.\n"
+                    else:
+                        continue
+                if resp and resp != 'q':
+                    selection = int(resp) - 1
+                    return files[selection]
+
+
     # At this point we haven't found any matching files so we need to prompt for one
     file_path = None
     try:
@@ -211,7 +245,7 @@ def _locate_cfg_file(cfg_file_names, file_type):
 def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False, dry_run=False):
     if verbose:
         print 'Parsing Apache configuration...'
-    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, verbose=verbose, dry_run=dry_run)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
@@ -517,11 +551,6 @@ def do_everything(args):
         common_name = order['certificate']['common_name']
 
     if order_id:
-        # FIXME this will probably need to change once we've got creating the CSR worked out..
-        if not key:
-            key = raw_input("Please enter the absolute path to you the key file you created with"
-                            " your CSR (ie: /etc/digicert/domain_name.key): ")
-
         # get the order info if the domain was not passed in the args
         if not domain:
             order_info = _get_order_info(order_id)
@@ -529,6 +558,13 @@ def do_everything(args):
             if certificate:
                 domain = certificate['common_name']
                 common_name = domain
+
+        # FIXME this will probably need to change once we've got creating the CSR worked out..
+        if not key:
+            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
+            if not key:
+                print 'No valid private key file located; aborting.'
+                return
 
         certs = _download_cert(order_id, CFG_PATH, common_name, verbose=args.verbose)
         chain = certs['chain']

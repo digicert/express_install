@@ -27,7 +27,7 @@ class ParserException(Exception):
 class BaseParser(object):
     """docstring for BaseParser"""
 
-    def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert', verbose=False, aug=None, dry_run = False):
+    def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert', verbose=False, aug=None, dry_run=False):
         self.domain = domain
         self.dry_run = dry_run
 
@@ -433,6 +433,9 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
 
     if not os.path.isfile(file_path):
         raise ParserException("{0} '{1}' could not be found on the filesystem".format(desc, file_path))
+
+    if not os.path.exists(storage_path):
+        os.mkdir(storage_path)
 
     # copy the files to the storage path if they aren't already there
     path = os.path.dirname(file_path)

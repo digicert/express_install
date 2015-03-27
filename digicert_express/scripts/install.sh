@@ -108,3 +108,8 @@ if [ -e "$LINK_PATH" ]; then
 	echo ""
 fi
 
+# DYNAMIC STUFF
+# write the certificate to file
+# write the intermediate (chain) certificate to file
+# write the order details to file (for use with subsequent calls to express install)
+# run express install
