@@ -109,7 +109,27 @@ if [ -e "$LINK_PATH" ]; then
 fi
 
 # DYNAMIC STUFF
-# write the certificate to file
-# write the intermediate (chain) certificate to file
-# write the order details to file (for use with subsequent calls to express install)
-# run express install
+# order details
+FILEPATH="/etc/digicert"
+DOMAIN=""
+ORDER=""
+CERTIFICATE=""
+CERTIFICATE_CHAIN=""
+if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
+    if ! [[ "$CERTIFICATE" = "" || "$CERTIFICATE_CHAIN" = "" ]]; then
+        mkdir -p "$FILEPATH"
+        CERT_NAME=`echo "$DOMAIN" | sed -e "s/\./_/g"`
+
+        # write the certificate to file
+        echo "$CERTIFICATE" >> "$FILEPATH/$CERT_NAME.crt"
+        echo "$CERTIFICATE_CHAIN" >> "$FILEPATH/$CERT_NAME.pem"
+
+        # run express install
+        sudo express_install all --domain "$DOMAIN"
+    else
+        # run express install
+        sudo express_install all --domain "$DOMAIN" --create_csr
+    fi
+else
+    echo "ERROR: You are missing your domain name or order id, please contact digicert support"
+fi
