@@ -592,6 +592,8 @@ def do_everything(args):
                 _restart_apache(domain, verbose=args.verbose)
             else:
                 print 'Restart your Apache server for your changes to take effect.'
+                print 'Use the following command to restart your Apache server and verify your SSL settings:'
+                print 'sudo express_install restart_apache --domain "{0}"'.format(domain)
     else:
         print "ERROR: You must specify a valid domain or order id"
 
