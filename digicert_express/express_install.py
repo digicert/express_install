@@ -90,7 +90,7 @@ def run():
     all_parser.add_argument("--key", action="store", help="Path to private key file used to order certificate")
     all_parser.add_argument("--api_key", action="store", help="Skip authentication step with a DigiCert API key")
     all_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
-    all_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
+    all_parser.add_argument("--create_csr", action="store_true", help="Create and upload the csr, this will also create the private key file")    all_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
     all_parser.add_argument("--dry_run", action="store_true", help="Display what changes will be made without making any changes")
     all_parser.add_argument("--restart_apache", action="store_true", help="Restart Apache server without prompting")
     all_parser.set_defaults(func=do_everything)
@@ -184,7 +184,7 @@ def configure_apache(args):
         print 'Please restart Apache for your changes to take effect.'
 
 
-def _locate_cfg_file(cfg_file_names, file_type):
+def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
     print "Looking for {0}...".format(file_type)
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
@@ -202,7 +202,7 @@ def _locate_cfg_file(cfg_file_names, file_type):
         if len(files) > 0:
             if len(files) == 1:
                 return files[0]
-            else:
+            elif prompt:
                 resp = None
                 while not resp:
                     for i in range(0, len(files)):
@@ -559,16 +559,29 @@ def do_everything(args):
                 domain = certificate['common_name']
                 common_name = domain
 
-        # FIXME this will probably need to change once we've got creating the CSR worked out..
         if not key:
-            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
-            if not key:
-                print 'No valid private key file located; aborting.'
-                return
+            if args.create_csr:
+                # FIXME create and upload the csr
+                pass
+            else:
+                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
+                if not key:
+                    print 'No valid private key file located; aborting.'
+                    return
+        cert = None
+        chain = None
+        if not args.create_csr:
+            # if we didn't create the csr for them previously, their chain and cert could be on the filesystem
+            # attempt to locate the cert and chain files
+            # FIXME should we prompt the user to input the path to their files at this point?
+            cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate', prompt=False)
+            chain = _locate_cfg_file(['%s.pem' % common_name.replace('.', '_'), 'DigiCertCA.crt'], 'Certificate chain', prompt=False)
 
-        certs = _download_cert(order_id, CFG_PATH, common_name, verbose=args.verbose)
-        chain = certs['chain']
-        cert = certs['cert']
+        # if we still don't have the cert and chain files, download them
+        if not cert or not chain:
+            certs = _download_cert(order_id, CFG_PATH, common_name, verbose=args.verbose)
+            chain = certs['chain']
+            cert = certs['cert']
 
         # make the changes to apache
         _configure_apache(domain, cert, key, chain, verbose=args.verbose, dry_run=args.dry_run)
