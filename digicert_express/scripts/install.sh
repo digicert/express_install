@@ -125,10 +125,10 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
         echo "$CERTIFICATE_CHAIN" >> "$FILEPATH/$CERT_NAME.pem"
 
         # run express install
-        sudo express_install all --domain "$DOMAIN"
+        sudo express_install all --domain "$DOMAIN" --order_id "$ORDER"
     else
         # run express install
-        sudo express_install all --domain "$DOMAIN" --create_csr
+        sudo express_install all --domain "$DOMAIN" --order_id "$ORDER" --create_csr
     fi
 else
     echo "ERROR: You are missing your domain name or order id, please contact digicert support"
