@@ -203,7 +203,7 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
         if len(files) > 0:
             if len(files) == 1:
                 return files[0]
-            elif prompt:
+            else:
                 resp = None
                 while not resp:
                     for i in range(0, len(files)):
@@ -227,20 +227,20 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
                     selection = int(resp) - 1
                     return files[selection]
 
-
-    # At this point we haven't found any matching files so we need to prompt for one
-    file_path = None
-    try:
-        while not file_path:
-            file_path = raw_input('%s file could not be found.  Please provide a path to the file: ' % file_type)
-            if os.path.exists(file_path):
-                break
-            if len(file_path):
-                print 'No such file or directory: "%s"' % file_path
-            file_path = None
-    except KeyboardInterrupt:
-        print '\nNo valid file selected.'
-    return file_path
+    if prompt:
+        # At this point we haven't found any matching files so we need to prompt for one
+        file_path = None
+        try:
+            while not file_path:
+                file_path = raw_input('%s file could not be found.  Please provide a path to the file: ' % file_type)
+                if os.path.exists(file_path):
+                    break
+                if len(file_path):
+                    print 'No such file or directory: "%s"' % file_path
+                file_path = None
+        except KeyboardInterrupt:
+            print '\nNo valid file selected.'
+        return file_path
 
 
 def _configure_apache(host, cert, key, chain, apache_config=None, verbose=False, dry_run=False):
@@ -439,6 +439,28 @@ def _get_valid_orders():
         return
 
 
+def _upload_csr(order_id, csr_file):
+    global API_KEY
+
+    if not API_KEY:
+        API_KEY = _get_temp_api_key()
+
+    if API_KEY:
+        # call the V2 view orders API
+        csr_text = None
+        with open(csr_file, "r") as f:
+            csr_text = f.read()
+
+        orderclient = CertificateOrder(HOST, API_KEY)
+        resp = orderclient.upload_csr(order_id, csr_text)
+        if resp and resp['http_status']:
+            # accept any 2xx status code
+            import math
+            result = int(math.floor(int(resp['http_status']) / 100)) * 100
+            return result == 200
+        return False
+
+
 def _get_order_by_domain(domain):
     orders = _get_valid_orders()
     for order in orders:
@@ -497,28 +519,32 @@ def _select_from_orders():
     return orders[selection]
 
 
-def _create_csr(server_name, org, city, state, country, key_size=2048):
+def _create_csr(server_name, org="", city="", state="", country="", key_size=2048):
     # remove http:// and https:// from server_name
     server_name = server_name.lstrip("http://")
     server_name = server_name.lstrip("https://")
+
+    key_file_name = "{0}.key".format(server_name.replace('.', '_'))
+    csr_file_name = "{0}.csr".format(server_name.replace('.', '_'))
 
     # remove commas from org, state, & country
     org = org.replace(",", "")
     state = state.replace(",", "")
     country = country.replace(",", "")
 
-    subj_string = "/C={0}/ST={1}/L={2}/O={3}/CN={5}".format(country, state, city, org, server_name)
-    csr_cmd = 'openssl req -new -newkey rsa:{0} -nodes -out {1}.csr -keyout {2}.key ' \
-              '-subj "{3}"'.format(key_size, server_name, server_name, subj_string)
+    subj_string = "/C={0}/ST={1}/L={2}/O={3}/CN={4}".format(country, state, city, org, server_name)
+    csr_cmd = 'openssl req -new -newkey rsa:{0} -nodes -out {1} -keyout {2} ' \
+              '-subj "{3}"'.format(key_size, csr_file_name, key_file_name, subj_string)
 
     # run the command
     csr_output = os.popen(csr_cmd).read()
 
     # verify the existence of the key and csr files
-    if not os.path.exists("{0}.key".format(server_name)) or not os.path.exists("{0}.csr".format(server_name)):
+    if not os.path.exists(key_file_name) or not os.path.exists(csr_file_name):
         raise Exception("ERROR: An error occurred while attempting to create your CSR file.  Please try running {0} "
                         "manually and re-run this application with the CSR file location "
                         "as part of the arguments.".format(csr_cmd))
+    return {"key": key_file_name, "csr": csr_file_name}
 
 
 def _copy_cert(cert_path, apache_path):
@@ -560,18 +586,36 @@ def do_everything(args):
                 domain = certificate['common_name']
                 common_name = domain
 
-        if not key:
-            if args.create_csr:
-                # FIXME create and upload the csr
-                pass
-            else:
-                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
-                if not key:
-                    print 'No valid private key file located; aborting.'
+        create_csr = args.create_csr
+        if create_csr:
+            # if the user specified a key or one was found then the csr may have already been generated, if another
+            # is submitted and a new key is generated apache2 may not restart due to a key mismatch
+            # FIXME we need to work out a 're-issue' scenario at some point
+            if not key:
+                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', prompt=False)
+
+            if key:
+                create_csr = raw_input("We found a private key file ({0} created on {1}), do you want to generate a "
+                                       "new private key and submit a new CSR file to DigiCert? "
+                                       "(Y/n) ".format(key, time.ctime(os.path.getctime(key)))).lower() != 'n'
+
+            if create_csr:
+                # create and upload the csr
+                csr_response = _create_csr(common_name)
+                key = csr_response['key']
+                if not _upload_csr(order_id, csr_response['csr']):
+                    print "We could not upload your csr file, please try again or contact DigiCert support."
                     return
+        elif not key:
+            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
+
+        if not key:
+            print 'No valid private key file located; aborting.'
+            return
+
         cert = None
         chain = None
-        if not args.create_csr:
+        if not create_csr:
             # if we didn't create the csr for them previously, their chain and cert could be on the filesystem
             # attempt to locate the cert and chain files
             # FIXME should we prompt the user to input the path to their files at this point?

@@ -7,11 +7,15 @@ class LoginCommand(Command):
     def __init__(self, username, password):
         super(LoginCommand, self).__init__(customer_api_key=None,
                                            customer_name=None,
-                                           **{'username': username, 'password': password})
-        self._headers['Content-Type'] = 'application/x-www-form-urlencoded'
+                                           **{'username': username, 'current_password': password})
+        # self._headers['Content-Type'] = 'application/json'
+        self.set_header('Content-Type', 'application/json')
 
     def get_path(self):
-        return '/services/v2/authentication/login'
+        return '/services/v2/user/tempkey'
+
+    def get_params(self):
+        return json.dumps(self.__dict__)
 
     def __str__(self):
         return json.dumps(self.__dict__, indent=2, separators=(',', ': '))
