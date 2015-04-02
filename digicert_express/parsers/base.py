@@ -87,7 +87,7 @@ class BaseParser(object):
     def _find_apache_config():
         # FIXME this was stolen from main.py we should consider centralizing main.py's determine_platform() function
         distro = platform.linux_distribution()
-        apache_command = "`which {0}` -V".format(APACHE_SERVICES.get(distro[0]))
+        apache_command = "`which {0}` -V 2>/dev/null".format(APACHE_SERVICES.get(distro[0]))
         apache_config = os.popen(apache_command).read()
         if apache_config:
             server_config_check = "SERVER_CONFIG_FILE="

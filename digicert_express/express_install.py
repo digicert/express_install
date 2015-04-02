@@ -534,10 +534,10 @@ def _create_csr(server_name, org="", city="", state="", country="", key_size=204
 
     subj_string = "/C={0}/ST={1}/L={2}/O={3}/CN={4}".format(country, state, city, org, server_name)
     csr_cmd = 'openssl req -new -newkey rsa:{0} -nodes -out {1} -keyout {2} ' \
-              '-subj "{3}"'.format(key_size, csr_file_name, key_file_name, subj_string)
+              '-subj "{3}" 2>/dev/null'.format(key_size, csr_file_name, key_file_name, subj_string)
 
     # run the command
-    csr_output = os.popen(csr_cmd).read()
+    os.system(csr_cmd)
 
     # verify the existence of the key and csr files
     if not os.path.exists(key_file_name) or not os.path.exists(csr_file_name):
@@ -597,7 +597,7 @@ def do_everything(args):
             if key:
                 create_csr = raw_input("We found a private key file ({0} created on {1}), do you want to generate a "
                                        "new private key and submit a new CSR file to DigiCert? "
-                                       "(Y/n) ".format(key, time.ctime(os.path.getctime(key)))).lower() != 'n'
+                                       "(y/N) ".format(key, time.ctime(os.path.getctime(key)))).lower() != 'y'
 
             if create_csr:
                 if key:
