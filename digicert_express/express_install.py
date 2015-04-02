@@ -600,6 +600,9 @@ def do_everything(args):
                                        "(Y/n) ".format(key, time.ctime(os.path.getctime(key)))).lower() != 'n'
 
             if create_csr:
+                if key:
+                    # back up the old key just in case
+                    shutil.copy(key, "{0}.{1}.bak".format(key, int(os.path.getctime(key))))
                 # create and upload the csr
                 csr_response = _create_csr(common_name)
                 key = csr_response['key']
