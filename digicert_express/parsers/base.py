@@ -85,7 +85,7 @@ class BaseParser(object):
 
     @staticmethod
     def _find_apache_config():
-        # FIXME this was stolen from main.py we should consider centralizing main.py's determine_platform() function
+        # FIXME this was stolen from main.py we should consider centralizing express_install.py's determine_platform() function
         distro = platform.linux_distribution()
         apache_command = "`which {0}` -V 2>/dev/null".format(APACHE_SERVICES.get(distro[0]))
         apache_config = os.popen(apache_command).read()
