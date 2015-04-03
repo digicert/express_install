@@ -594,19 +594,26 @@ def do_everything(args):
             if not key:
                 key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', prompt=False)
 
+            csr = None
             if key:
-                create_csr = raw_input("We found a private key file ({0} created on {1}), do you want to generate a "
-                                       "new private key and submit a new CSR file to DigiCert? "
-                                       "(y/N) ".format(key, time.ctime(os.path.getctime(key)))).lower() != 'y'
+                # check the order status, if the status is needs_csr check for the csr file and upload it
+                order_info = _get_order_info(order_id)
+                if order_info['status'] == "needs_csr":
+                    # if we found a key and the status is 'needs_csr' we expect to find the csr file as well
+                    csr = _locate_cfg_file('%s.csr' % common_name.replace('.', '_'), 'CSR file')
+                elif order_info['status'] == "issued":
+                    print "It looks like you've already submitted your csr, we'll download and configure your certificates for you"
+                    create_csr = False
 
             if create_csr:
-                if key:
-                    # back up the old key just in case
-                    shutil.copy(key, "{0}.{1}.bak".format(key, int(os.path.getctime(key))))
-                # create and upload the csr
-                csr_response = _create_csr(common_name)
-                key = csr_response['key']
-                if not _upload_csr(order_id, csr_response['csr']):
+                if not csr and not key:
+                    # create the csr and private key
+                    csr_response = _create_csr(common_name)
+                    key = csr_response['key']
+                    csr = csr_response['csr']
+
+                # upload the csr
+                if not _upload_csr(order_id, csr):
                     print "We could not upload your csr file, please try again or contact DigiCert support."
                     return
         elif not key:
