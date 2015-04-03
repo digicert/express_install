@@ -74,8 +74,8 @@ if ! [ "$PYTHON_PACKAGES" = "" ]; then
 fi
 
 if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
-    read -p "Do you wish to install these packages? [y/n] " REPLY
-    if [ "$REPLY" = "y" ]; then
+    read -p "Do you wish to install these packages? [Y/n] " REPLY
+    if ! [ "$REPLY" = "n" ]; then
         if ! [ "$INSTALL_PACKAGES" = "" ]; then
             sudo $install_cmd -q -y install $INSTALL_PACKAGES
             if [ $? -ne 0 ]; then

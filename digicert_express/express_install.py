@@ -649,7 +649,7 @@ def do_everything(args):
         _configure_apache(domain, cert, key, chain, verbose=args.verbose, dry_run=args.dry_run)
 
         if not args.dry_run:
-            if args.restart_apache or raw_input('Would you like to restart Apache now? (y/N) ') == 'y':
+            if args.restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
                 _restart_apache(domain, verbose=args.verbose)
             else:
                 print 'Restart your Apache server for your changes to take effect.'
