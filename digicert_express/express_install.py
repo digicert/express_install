@@ -8,9 +8,9 @@ import shutil
 import getpass
 from httplib import HTTPSConnection
 import apt.cache
-import time
 import tempfile
 
+from datetime import datetime
 from zipfile import ZipFile
 from StringIO import StringIO
 
@@ -600,13 +600,20 @@ def do_everything(args):
                 order_info = _get_order_info(order_id)
                 if order_info['status'] == "needs_csr":
                     # if we found a key and the status is 'needs_csr' we expect to find the csr file as well
-                    csr = _locate_cfg_file('%s.csr' % common_name.replace('.', '_'), 'CSR file')
+                    csr = _locate_cfg_file('%s.csr' % common_name.replace('.', '_'), 'CSR file', prompt=False)
+
+                    if not csr:
+                        # back up the existing key
+                        timestamp = datetime.fromtimestamp(int(os.path.getctime(key))).strftime('%Y-%m-%d_%H:%M:%S')
+                        shutil.copy(key, "{0}.{1}.bak".format(key, timestamp))
+                        create_csr = True
+
                 elif order_info['status'] == "issued":
                     print "It looks like you've already submitted your csr, we'll download and configure your certificates for you"
                     create_csr = False
 
             if create_csr:
-                if not csr and not key:
+                if not csr:
                     # create the csr and private key
                     csr_response = _create_csr(common_name)
                     key = csr_response['key']
