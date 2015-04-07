@@ -80,6 +80,7 @@ def run():
 
     restart_apache_parser = subparsers.add_parser('restart_apache', help='Restart Apache and verify SSL configuration')
     restart_apache_parser.add_argument("--domain", action="store", nargs="?", help="Domain to verify after the restart")
+    restart_apache_parser.add_argument("--verbose", action="store_true", help="Display verbose output")
     restart_apache_parser.set_defaults(func=restart_apache)
 
     all_parser = subparsers.add_parser("all", help='Download your certificate and secure your domain in one step')
@@ -106,7 +107,7 @@ def run():
 
 
 def restart_apache(args):
-    _restart_apache(args.domain)
+    _restart_apache(args.domain, args.verbose)
 
 
 def _restart_apache(domain='', verbose=False):
@@ -435,6 +436,7 @@ def _get_valid_orders():
 
 
 def _upload_csr(order_id, csr_file):
+    print "Uploading CSR file for order# {0}...".format(order_id)
     global API_KEY
 
     if not API_KEY:
@@ -515,6 +517,7 @@ def _select_from_orders():
 
 
 def _create_csr(server_name, org="", city="", state="", country="", key_size=2048):
+    print "Creating CSR file for {0}...".format(server_name)
     # remove http:// and https:// from server_name
     server_name = server_name.lstrip("http://")
     server_name = server_name.lstrip("https://")
@@ -539,6 +542,8 @@ def _create_csr(server_name, org="", city="", state="", country="", key_size=204
         raise Exception("ERROR: An error occurred while attempting to create your CSR file.  Please try running {0} "
                         "manually and re-run this application with the CSR file location "
                         "as part of the arguments.".format(csr_cmd))
+    print "Created private key file {0}...".format(key_file_name)
+    print "Created CSR file {0}...".format(csr_file_name)
     return {"key": key_file_name, "csr": csr_file_name}
 
 
@@ -645,7 +650,7 @@ def do_everything(args):
 
         if not args.dry_run:
             if args.restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
-                _restart_apache(domain)
+                _restart_apache(domain, args.verbose)
             else:
                 print 'Restart your Apache server for your changes to take effect.'
                 print 'Use the following command to restart your Apache server and verify your SSL settings:'
