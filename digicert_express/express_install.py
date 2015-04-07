@@ -52,7 +52,7 @@ def run():
 
     parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!  '
                                                  'Run the following commands in the order shown below, or choose "all" to do everything in one step.')
-    parser.add_argument('--version', action='version', version='Express Install 1.0')
+    parser.add_argument('--version', action='version', version='Express Install 1.0.0b7')
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
 
     dependency_check_parser = subparsers.add_parser('dep_check', help="Check for and install any needed dependencies")
