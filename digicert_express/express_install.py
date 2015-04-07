@@ -8,7 +8,6 @@ import shutil
 import getpass
 from httplib import HTTPSConnection
 import tempfile
-
 from datetime import datetime
 from zipfile import ZipFile
 from StringIO import StringIO
@@ -42,7 +41,7 @@ HOST = 'localhost.digicert.com'
 API_KEY = None
 
 CFG_PATH = '/etc/digicert'
-LOGFILE = 'digicert_express_install.log'
+LOGFILE = 'digicert_express.log'
 
 
 def run():
@@ -52,7 +51,8 @@ def run():
         exit()
 
     parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!  '
-                                                 'Run the following commands in the order shown below, or choose "all" to do everything in one step.', version='1.0')
+                                                 'Run the following commands in the order shown below, or choose "all" to do everything in one step.')
+    parser.add_argument('--version', action='version', version='Express Install 1.0')
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
 
     dependency_check_parser = subparsers.add_parser('dep_check', help="Check for and install any needed dependencies")
@@ -733,7 +733,7 @@ def check_for_deps(args):
 def check_for_deps_debian(verbose=False):
     # check to see which of the deps are installed
     try:
-        import apt.cache
+        import apt
         a = apt.cache.Cache(memonly=True)
 
         for d in DEB_DEPS_64:
