@@ -80,7 +80,7 @@ class BaseParser(object):
         except Exception, e:
             self.check_for_parsing_errors()
             raise ParserException(
-                "An error occurred while loading your apache configuration.\n{1}".format(e.message),
+                "An error occurred while loading your apache configuration.\n{0}".format(e),
                 self.directives)
 
     @staticmethod
@@ -206,37 +206,41 @@ class BaseParser(object):
         vhost_map = list()
         self._create_map_from_vhost(vhost, vhost_map)
 
-        # check if there is an IfModule for mod_ssl.c, if not create it
-        if_module = None
-        check_matches = self.aug.match("{0}/*[label()=~regexp('{1}')]".format(host_file, create_regex("IfModule")))
-        if check_matches:
-            for check in check_matches:
-                if self.aug.get(check + "/arg") == "mod_ssl.c":
-                    if_module = check
+        if platform.linux_distribution()[0] != "CentOS":
 
-        if self.dry_run:
-            terminate_if_module = False
-            self.lines.append("The following Virtual Host will be created:\n")
-        if not if_module:
-            self.aug.set(host_file + "/IfModule[last()+1]/arg", "mod_ssl.c")
+            # check if there is an IfModule for mod_ssl.c, if not create it
+            if_module = None
+            check_matches = self.aug.match("{0}/*[label()=~regexp('{1}')]".format(host_file, create_regex("IfModule")))
+            if check_matches:
+                for check in check_matches:
+                    if self.aug.get(check + "/arg") == "mod_ssl.c":
+                        if_module = check
+
             if self.dry_run:
-                self.lines.append("<IfModule mod_ssl.c>")
-                terminate_if_module = True
-            if_modules = self.aug.match(host_file + "/*[self::IfModule/arg='mod_ssl.c']")
-            if len(if_modules) > 0:
-                if_module = if_modules[0]
-            else:
-                raise ParserException(
-                    "An error occurred while creating IfModule mod_ssl.c for {0}.".format(self.domain), self.directives)
+                terminate_if_module = False
+                self.lines.append("The following Virtual Host will be created:\n")
+            if not if_module:
+                self.aug.set(host_file + "/IfModule[last()+1]/arg", "mod_ssl.c")
+                if self.dry_run:
+                    self.lines.append("<IfModule mod_ssl.c>")
+                    terminate_if_module = True
+                if_modules = self.aug.match(host_file + "/*[self::IfModule/arg='mod_ssl.c']")
+                if len(if_modules) > 0:
+                    if_module = if_modules[0]
+                    host_file = if_module
+                else:
+                    raise ParserException(
+                        "An error occurred while creating IfModule mod_ssl.c for {0}.".format(self.domain), self.directives)
 
         # create a new secure vhost
         vhost_name = self.aug.get(vhost + "/arg")
         vhost_name = vhost_name[0:vhost_name.index(":")] + ":443"
-        self.aug.set(if_module + "/VirtualHost[last()+1]/arg", vhost_name)
+        # vhost_name = self.domain + ":443"
+        self.aug.set(host_file + "/VirtualHost[last()+1]/arg", vhost_name)
         if self.dry_run:
             self.lines.append("<VirtualHost {0}>".format(vhost_name))
 
-        vhosts = self.aug.match("{0}/*[self::VirtualHost/arg='{1}']".format(if_module, vhost_name))
+        vhosts = self.aug.match("{0}/*[self::VirtualHost/arg='{1}']".format(host_file, vhost_name))
         for vhost in vhosts:
             secure_vhost = vhost
 
