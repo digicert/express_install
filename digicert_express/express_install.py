@@ -104,8 +104,6 @@ def run():
     except Exception, e:
         print e.message
         print ''
-        import traceback
-        print traceback.print_exc()
 
 
 def restart_apache(args):

@@ -172,9 +172,11 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
         echo "$CERTIFICATE_CHAIN" >> "$FILEPATH/$CERT_NAME.pem"
 
         # run express install
+        echo "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
         sudo express_install all --domain "$DOMAIN" --order_id "$ORDER"
     else
         # run express install
+        echo "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\" --create_csr"
         sudo express_install all --domain "$DOMAIN" --order_id "$ORDER" --create_csr
     fi
 else

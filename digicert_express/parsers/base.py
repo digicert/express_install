@@ -206,6 +206,10 @@ class BaseParser(object):
         vhost_map = list()
         self._create_map_from_vhost(vhost, vhost_map)
 
+        if self.dry_run:
+            terminate_if_module = False
+            self.lines.append("The following Virtual Host will be created:\n")
+
         if platform.linux_distribution()[0] != "CentOS":
 
             # check if there is an IfModule for mod_ssl.c, if not create it
@@ -216,9 +220,6 @@ class BaseParser(object):
                     if self.aug.get(check + "/arg") == "mod_ssl.c":
                         if_module = check
 
-            if self.dry_run:
-                terminate_if_module = False
-                self.lines.append("The following Virtual Host will be created:\n")
             if not if_module:
                 self.aug.set(host_file + "/IfModule[last()+1]/arg", "mod_ssl.c")
                 if self.dry_run:
@@ -235,7 +236,6 @@ class BaseParser(object):
         # create a new secure vhost
         vhost_name = self.aug.get(vhost + "/arg")
         vhost_name = vhost_name[0:vhost_name.index(":")] + ":443"
-        # vhost_name = self.domain + ":443"
         self.aug.set(host_file + "/VirtualHost[last()+1]/arg", vhost_name)
         if self.dry_run:
             self.lines.append("<VirtualHost {0}>".format(vhost_name))
