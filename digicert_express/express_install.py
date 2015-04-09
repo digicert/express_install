@@ -104,6 +104,8 @@ def run():
     except Exception, e:
         print e.message
         print ''
+        import traceback
+        print traceback.print_exc()
 
 
 def restart_apache(args):
@@ -128,6 +130,7 @@ def _restart_apache(domain='', verbose=False):
 
     if domain and apache_process_result:
         site_result = _check_for_site_availability(domain)
+        ssl_result = False
         if site_result:
             ssl_result = _check_for_site_openssl(domain)
 
