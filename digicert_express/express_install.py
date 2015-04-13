@@ -7,6 +7,7 @@ import platform
 import shutil
 import getpass
 from httplib import HTTPSConnection
+from httplib import HTTPException
 import tempfile
 from datetime import datetime
 from zipfile import ZipFile
@@ -123,7 +124,7 @@ def _restart_apache(domain='', verbose=False):
     apache_process_result = _check_for_apache_process(distro_name)
 
     if not apache_process_result:
-        print "Error: Apache did not restart successfully."
+        print "ERROR: Apache did not restart successfully."
         have_error = True
 
     if domain and apache_process_result:
@@ -132,15 +133,16 @@ def _restart_apache(domain='', verbose=False):
             ssl_result = _check_for_site_openssl(domain)
 
         if not site_result:
-            print "Error: Could not connect to the domain %s via HTTPS." % domain
+            print "ERROR: Could not connect to the domain %s via HTTPS." % domain
             have_error = True
 
         if not ssl_result:
-            print "Error: Could not connect"
+            print "ERROR: Could not connect"
             have_error = True
 
     if not have_error:
         print 'Apache restarted successfully.'
+        print ''
 
 
 def configure_apache(args):
@@ -256,6 +258,7 @@ def _configure_apache(host, cert, key, chain, apache_config=None, dry_run=False)
 
     if not dry_run:
         print 'Apache configuration updated successfully.'
+        print ''
 
 
 def _get_temp_api_key():
@@ -365,6 +368,7 @@ def _download_cert(order_id, file_path=None, domain=None):
         print 'Created certificate chain file at path %s...' % chain_file_path
         print ''
         print 'Certificate files downloaded successfully.'
+        print ''
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
     else:
@@ -454,7 +458,9 @@ def _upload_csr(order_id, csr_file):
             # accept any 2xx status code
             import math
             result = int(math.floor(int(resp['http_status']) / 100)) * 100
-            return result == 200
+            if result == 200:
+                print "CSR uploaded successfully"
+                print ""
         return False
 
 
@@ -544,6 +550,7 @@ def _create_csr(server_name, org="", city="", state="", country="", key_size=204
                         "as part of the arguments.".format(csr_cmd))
     print "Created private key file {0}...".format(key_file_name)
     print "Created CSR file {0}...".format(csr_file_name)
+    print ""
     return {"key": key_file_name, "csr": csr_file_name}
 
 
@@ -651,6 +658,7 @@ def do_everything(args):
         if not args.dry_run:
             if args.restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
                 _restart_apache(domain, args.verbose)
+                print "Congratulations, you've successfully installed your certificate to (%s)." % domain
             else:
                 print 'Restart your Apache server for your changes to take effect.'
                 print 'Use the following command to restart your Apache server and verify your SSL settings:'
@@ -686,40 +694,50 @@ def _determine_platform():
 
 
 def _check_for_apache_process(platform_name):
-    process_name = APACHE_PROCESS_NAMES.get(platform_name)
-    process = os.popen("ps aux | grep %s" % process_name).read().splitlines()
-    if len(process) > 2:
-        return True
-    else:
-        return False
+    try:
+        process_name = APACHE_PROCESS_NAMES.get(platform_name)
+        process = os.popen("ps aux | grep %s" % process_name).read().splitlines()
+        if len(process) > 2:
+            return True
+    except Exception, e:
+        print "ERROR: %s" % e.message
+    return False
 
 
 def _check_for_site_availability(domain):
     # For simply checking that the site is available HTTPSConnection is good enough
     print "Verifying {0} is available over HTTPS...".format(domain)
-    conn = HTTPSConnection(domain)
-    conn.request('GET', '/')
-    response = conn.getresponse()
-    site_status = (response.status == 200)
-    if site_status:
-        print "{0} is reachable over HTTPS".format(domain)
-    return site_status
+    try:
+        conn = HTTPSConnection(domain)
+        conn.request('GET', '/')
+        response = conn.getresponse()
+        site_status = (response.status == 200)
+        if site_status:
+            print "{0} is reachable over HTTPS".format(domain)
+        return site_status
+    except HTTPException, e:
+        print "ERROR: %s" % e.message
+    return False
 
 
 def _check_for_site_openssl(domain):
     print "Validating the SSL configuration for {0}...".format(domain)
-    process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
-    site_status = False
-    if isinstance(process, basestring):
-        site_status = 'CONNECTED' in process
-    else:
-        for line in process:
-            if 'CONNECTED' in line:
-                site_status = True
-                break
-    if site_status:
-        print "SSL configuration for {0} is valid".format(domain)
-    return site_status
+    try:
+        process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
+        site_status = False
+        if isinstance(process, basestring):
+            site_status = 'CONNECTED' in process
+        else:
+            for line in process:
+                if 'CONNECTED' in line:
+                    site_status = True
+                    break
+        if site_status:
+            print "SSL configuration for {0} is valid".format(domain)
+        return site_status
+    except Exception, e:
+        print "ERROR: %s" % e.message
+    return False
 
 
 def check_for_deps(args):
