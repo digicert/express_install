@@ -14,6 +14,7 @@ from zipfile import ZipFile
 from StringIO import StringIO
 
 from parsers.base import BaseParser
+from loggers.express_install_logger import ExpressInstallLogger
 from cqrs import LoginCommand
 from digicert_client import CertificateOrder, Request
 
@@ -43,6 +44,7 @@ API_KEY = None
 
 CFG_PATH = '/etc/digicert'
 LOGFILE = 'digicert_express.log'
+LOGGER = ExpressInstallLogger(file_name=LOGFILE).get_logger()
 
 
 def run():
@@ -99,11 +101,11 @@ def run():
 
     try:
         print ''
-        print 'DigiCert Express Install'
+        LOGGER.info('DigiCert Express Install')
         print ''
         args.func(args)
     except Exception, e:
-        print e.message
+        LOGGER.error(e.message)
         print ''
 
 
@@ -112,7 +114,7 @@ def restart_apache(args):
 
 
 def _restart_apache(domain='', verbose=False):
-    print "Restarting your apache server"
+    LOGGER.info("Restarting your apache server")
 
     distro_name = _determine_platform()
     command = APACHE_COMMANDS.get(distro_name)
@@ -124,7 +126,7 @@ def _restart_apache(domain='', verbose=False):
     apache_process_result = _check_for_apache_process(distro_name)
 
     if not apache_process_result:
-        print "ERROR: Apache did not restart successfully."
+        LOGGER.error("ERROR: Apache did not restart successfully.")
         have_error = True
 
     if domain and apache_process_result:
@@ -134,15 +136,15 @@ def _restart_apache(domain='', verbose=False):
             ssl_result = _check_for_site_openssl(domain)
 
         if not site_result:
-            print "ERROR: Could not connect to the domain %s via HTTPS." % domain
+            LOGGER.error("ERROR: Could not connect to the domain %s via HTTPS." % domain)
             have_error = True
 
         if not ssl_result:
-            print "ERROR: Could not connect"
+            LOGGER.error("ERROR: Could not connect")
             have_error = True
 
     if not have_error:
-        print 'Apache restarted successfully.'
+        LOGGER.info('Apache restarted successfully.')
         print ''
 
 
@@ -162,34 +164,34 @@ def configure_apache(args):
         if order:
             common_name = order['certificate']['common_name']
 
-    print "Updating the Apache configuration with SSL settings."
+    LOGGER.info("Updating the Apache configuration with SSL settings.")
 
     if not cert:
         cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate')
         if not cert:
-            print 'No valid certificate file located; aborting.'
+            LOGGER.error('No valid certificate file located; aborting.')
             return
 
     if not chain:
         chain = _locate_cfg_file(['%s.pem' % common_name.replace('.', '_'), 'DigiCertCA.crt'], 'Certificate chain')
         if not chain:
-            print 'No valid certificate chain file located; aborting.'
+            LOGGER.error('No valid certificate chain file located; aborting.')
             return
 
     if not key:
         key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
         if not key:
-            print 'No valid private key file located; aborting.'
+            LOGGER.error('No valid private key file located; aborting.')
             return
 
     _configure_apache(domain, cert, key, chain, args.apache_config, args.dry_run)
 
     if not args.dry_run:
-        print 'Please restart Apache for your changes to take effect.'
+        LOGGER.info('Please restart Apache for your changes to take effect.')
 
 
 def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
-    print "Looking for {0}...".format(file_type)
+    LOGGER.info("Looking for {0}...".format(file_type))
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
     else:
@@ -223,7 +225,9 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
                                 raise Exception
                         except Exception as e:
                             resp = None
-                            print "\nERROR: Invalid number, please try again.\n"
+                            print ""
+                            print "ERROR: Invalid number, please try again."
+                            print ""
                     else:
                         continue
                 if resp and resp != 'q':
@@ -242,29 +246,31 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
                     print 'No such file or directory: "%s"' % file_path
                 file_path = None
         except KeyboardInterrupt:
-            print '\nNo valid file selected.'
+            print ''
+            LOGGER.error('No valid file selected.')
+            print ''
         return file_path
 
 
 def _configure_apache(host, cert, key, chain, apache_config=None, dry_run=False):
-    print 'Parsing Apache configuration...'
-    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+    LOGGER.info('Parsing Apache configuration...')
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, logger=LOGGER, dry_run=dry_run)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
-    print 'Updating Apache configuration...'
+    LOGGER.info('Updating Apache configuration...')
     apache_parser.set_certificate_directives(virtual_host)
 
     _enable_ssl_mod()
 
     if not dry_run:
-        print 'Apache configuration updated successfully.'
+        LOGGER.info('Apache configuration updated successfully.')
         print ''
 
 
 def _get_temp_api_key():
     # prompt for username and password,
-    print "You will need your Digicert account credentials to continue: "
+    LOGGER.info("You will need your Digicert account credentials to continue: ")
 
     username = raw_input("DigiCert Username: ")
     password = getpass.getpass("DigiCert Password: ")
@@ -305,9 +311,9 @@ def _download_cert(order_id, file_path=None, domain=None):
     msg_downloading = 'Downloading certificate files for'
     msg_from_dc = 'from digicert.com'
     if domain:
-        print '%s domain "%s" %s (Order ID: %s)...' % (msg_downloading, domain, msg_from_dc, order_id)
+        LOGGER.info('%s domain "%s" %s (Order ID: %s)...' % (msg_downloading, domain, msg_from_dc, order_id))
     else:
-        print '%s order ID "%s" %s...' % (msg_downloading, order_id, msg_from_dc)
+        LOGGER.info('%s order ID "%s" %s...' % (msg_downloading, order_id, msg_from_dc))
     print ''
 
     global API_KEY
@@ -326,7 +332,7 @@ def _download_cert(order_id, file_path=None, domain=None):
             # create the download directory if it does not exist
             if file_path and not os.path.exists(file_path):
                 os.mkdir(file_path)
-                print 'Created %s directory...' % file_path
+                LOGGER.info('Created %s directory...' % file_path)
 
             if isinstance(certificates, str):
                 # then we know this is a zip file containing all certs
@@ -365,10 +371,10 @@ def _download_cert(order_id, file_path=None, domain=None):
         except IOError as ioe:
             raise Exception("Download failed: {0}".format(ioe))
 
-        print 'Created certificate file at path %s...' % cert_file_path
-        print 'Created certificate chain file at path %s...' % chain_file_path
+        LOGGER.info('Created certificate file at path %s...' % cert_file_path)
+        LOGGER.info('Created certificate chain file at path %s...' % chain_file_path)
         print ''
-        print 'Certificate files downloaded successfully.'
+        LOGGER.info('Certificate files downloaded successfully.')
         print ''
 
         return {'cert': cert_file_path, 'chain': chain_file_path}
@@ -441,7 +447,7 @@ def _get_valid_orders():
 
 
 def _upload_csr(order_id, csr_file):
-    print "Uploading CSR file for order# {0}...".format(order_id)
+    LOGGER.info("Uploading CSR file for order# {0}...".format(order_id))
     global API_KEY
 
     if not API_KEY:
@@ -460,7 +466,7 @@ def _upload_csr(order_id, csr_file):
             import math
             result = int(math.floor(int(resp['http_status']) / 100)) * 100
             if result == 200:
-                print "CSR uploaded successfully"
+                LOGGER.info("CSR uploaded successfully")
                 print ""
                 return True
         return False
@@ -507,7 +513,9 @@ def _select_from_orders():
                         raise Exception
                 except Exception as e:
                     resp = None
-                    print "\nERROR: Invalid number, please try again.\n"
+                    print ""
+                    print "ERROR: Invalid number, please try again."
+                    print ""
             else:
                 raise Exception("No domain selected; aborting.")
 
@@ -525,7 +533,7 @@ def _select_from_orders():
 
 
 def _create_csr(server_name, org="", city="", state="", country="", key_size=2048):
-    print "Creating CSR file for {0}...".format(server_name)
+    LOGGER.info("Creating CSR file for {0}...".format(server_name))
     # remove http:// and https:// from server_name
     server_name = server_name.lstrip("http://")
     server_name = server_name.lstrip("https://")
@@ -550,8 +558,8 @@ def _create_csr(server_name, org="", city="", state="", country="", key_size=204
         raise Exception("ERROR: An error occurred while attempting to create your CSR file.  Please try running {0} "
                         "manually and re-run this application with the CSR file location "
                         "as part of the arguments.".format(csr_cmd))
-    print "Created private key file {0}...".format(key_file_name)
-    print "Created CSR file {0}...".format(csr_file_name)
+    LOGGER.info("Created private key file {0}...".format(key_file_name))
+    LOGGER.info("Created CSR file {0}...".format(csr_file_name))
     print ""
     return {"key": key_file_name, "csr": csr_file_name}
 
@@ -618,7 +626,7 @@ def do_everything(args):
                         create_csr = True
 
                 elif order_info['status'] == "issued":
-                    print "It looks like you've already submitted your csr, we'll download and configure your certificates for you"
+                    LOGGER.info("It looks like you've already submitted your csr, we'll download and configure your certificates for you")
                     create_csr = False
 
             if create_csr:
@@ -630,13 +638,13 @@ def do_everything(args):
 
                 # upload the csr
                 if not _upload_csr(order_id, csr):
-                    print "We could not upload your csr file, please try again or contact DigiCert support."
+                    LOGGER.error("We could not upload your csr file, please try again or contact DigiCert support.")
                     return
         elif not key:
             key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
 
         if not key:
-            print 'No valid private key file located; aborting.'
+            LOGGER.error('No valid private key file located; aborting.')
             return
 
         cert = None
@@ -660,17 +668,17 @@ def do_everything(args):
         if not args.dry_run:
             if args.restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
                 _restart_apache(domain, args.verbose)
-                print "Congratulations, you've successfully installed your certificate to (%s)." % domain
+                LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
             else:
-                print 'Restart your Apache server for your changes to take effect.'
-                print 'Use the following command to restart your Apache server and verify your SSL settings:'
-                print 'sudo express_install restart_apache --domain "{0}"'.format(domain)
+                LOGGER.info('Restart your Apache server for your changes to take effect.')
+                LOGGER.info('Use the following command to restart your Apache server and verify your SSL settings:')
+                LOGGER.info('sudo express_install restart_apache --domain "{0}"'.format(domain))
     else:
-        print "ERROR: You must specify a valid domain or order id"
+        LOGGER.error("ERROR: You must specify a valid domain or order id")
 
 
 def _enable_ssl_mod():
-    print 'Enabling Apache SSL module...'
+    LOGGER.info('Enabling Apache SSL module...')
     if _determine_platform() != 'CentOS' and not _is_ssl_mod_enabled('/usr/sbin/apachectl'):
         try:
             subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'), stderr=open("/dev/null", 'w'))
@@ -702,28 +710,28 @@ def _check_for_apache_process(platform_name):
         if len(process) > 2:
             return True
     except Exception, e:
-        print "ERROR: %s" % e.message
+        LOGGER.error("ERROR: %s" % e.message)
     return False
 
 
 def _check_for_site_availability(domain):
     # For simply checking that the site is available HTTPSConnection is good enough
-    print "Verifying {0} is available over HTTPS...".format(domain)
+    LOGGER.info("Verifying {0} is available over HTTPS...".format(domain))
     try:
         conn = HTTPSConnection(domain)
         conn.request('GET', '/')
         response = conn.getresponse()
         site_status = (response.status == 200)
         if site_status:
-            print "{0} is reachable over HTTPS".format(domain)
+            LOGGER.info("{0} is reachable over HTTPS".format(domain))
         return site_status
-    except HTTPException, e:
-        print "ERROR: %s" % e.message
+    except Exception, e:
+        pass
     return False
 
 
 def _check_for_site_openssl(domain):
-    print "Validating the SSL configuration for {0}...".format(domain)
+    LOGGER.info("Validating the SSL configuration for {0}...".format(domain))
     try:
         process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
         site_status = False
@@ -735,10 +743,10 @@ def _check_for_site_openssl(domain):
                     site_status = True
                     break
         if site_status:
-            print "SSL configuration for {0} is valid".format(domain)
+            LOGGER.info("SSL configuration for {0} is valid".format(domain))
         return site_status
     except Exception, e:
-        print "ERROR: %s" % e.message
+        LOGGER.error("ERROR: %s" % e.message)
     return False
 
 
@@ -761,9 +769,10 @@ def check_for_deps_debian(verbose=False):
                 continue
             else:
                 if raw_input('Install: %s (Y/n) ' % a[d].name).lower().strip() == 'n':
-                    print "Please install %s package yourself: " % a[d].name
+                    LOGGER.info("Please install %s package yourself: " % a[d].name)
                     raw_input("Press enter to continue: ")
                 else:
+                    LOGGER.info("Installing %s..." % a[d].name)
                     if verbose:
                         a[d].mark_install()
                     else:
@@ -785,20 +794,14 @@ def check_for_deps_centos(verbose=False):
                     continue
                 else:
                     if raw_input('Install: %s (Y/n) ' % p.name).lower().strip() == 'n':
-                        print "Please install %s package yourself: " % package_name
+                        LOGGER.info("Please install %s package yourself: " % package_name)
                         raw_input("Press enter to continue: ")
                     else:
+                        LOGGER.info("Installing %s..." % p.name)
                         if verbose:
                             yb.install(name=p.name)
                         else:
                             os.system('yum -y install %s &>> %s' % (p.name, LOGFILE))
-
-                    answer = raw_input('Install: %s (y/n) ' % p.name)
-                    if answer.lower().strip() == 'y':
-                        yb.install(name=p.name)
-                    else:
-                        print "Please install %s package yourself: " % package_name
-                        raw_input("Press enter to continue: ")
     except ImportError:
         pass
 

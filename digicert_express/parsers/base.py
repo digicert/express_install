@@ -4,6 +4,7 @@ import shutil
 import re
 import fnmatch
 import platform
+from loggers.express_install_logger import ExpressInstallLogger
 from collections import OrderedDict
 
 # FIXME check these commands on each platform
@@ -27,7 +28,11 @@ class ParserException(Exception):
 class BaseParser(object):
     """docstring for BaseParser"""
 
-    def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert', aug=None, dry_run=False):
+    def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert',
+                 aug=None, logger=None, dry_run=False):
+        if not logger:
+            logger = ExpressInstallLogger().get_logger()
+
         self.domain = domain
         self.dry_run = dry_run
 
@@ -44,11 +49,11 @@ class BaseParser(object):
 
         # verify that the files exist and are readable by the user
         cert_path = verify_and_normalize_file(cert_path, "Certificate file", domain.replace(".", "_") + ".crt",
-                                              apache_user, storage_path, dry_run)
+                                              apache_user, storage_path, logger, dry_run)
         chain_path = verify_and_normalize_file(chain_path, "CA Chain file", domain.replace(".", "_") + ".pem",
-                                               apache_user, storage_path, dry_run)
+                                               apache_user, storage_path, logger, dry_run)
         key_path = verify_and_normalize_file(key_path, "Key file", domain.replace(".", "_") + ".key",
-                                             apache_user, storage_path, dry_run)
+                                             apache_user, storage_path, logger, dry_run)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -421,7 +426,7 @@ class BaseParser(object):
             self.aug.load()
 
 
-def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, dry_run=False):
+def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, logger, dry_run=False):
 
     """
     Verify that the file exists, move it to a common location, & set the proper permissions
@@ -448,7 +453,7 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
         normalized_cfg_file = '%s/%s' % (storage_path, name)
         if not dry_run:
             shutil.copy(file_path, normalized_cfg_file)
-            print 'Copied %s to %s...' % (file_path, normalized_cfg_file)
+            logger.info('Copied %s to %s...' % (file_path, normalized_cfg_file))
         file_path = normalized_cfg_file
 
     # change the owners of the ssl files
