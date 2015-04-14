@@ -461,6 +461,7 @@ def _upload_csr(order_id, csr_file):
             if result == 200:
                 print "CSR uploaded successfully"
                 print ""
+                return True
         return False
 
 
