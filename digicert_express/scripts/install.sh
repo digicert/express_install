@@ -1,19 +1,25 @@
 #!/bin/bash
 
-echo
-echo "DigiCert Express Install Bootstrapper"
-echo
+LOG_FILE="digicert_express_install.log"
+
+function dc_log {
+    echo $1 | tee -a ${LOG_FILE}
+}
+
+dc_log
+dc_log "DigiCert Express Install Bootstrapper"
+dc_log
 
 CHECK_INSTALL_PACKAGES=""
 DIGICERT_PYTHON_PACKAGES="digicert-client digicert-express"
 CHECK_PYTHON_PACKAGES="python-augeas"
-LOG_FILE="digicert_express_install.log"
 touch ${LOG_FILE}
-echo `date` >> ${LOG_FILE}
+start_date=`date`
+dc_log "${start_date}"
 
 read -p "I agree to the terms & conditions at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf [y/N] " REPLY
 if ! [[ "$REPLY" = "y" || "$REPLY" = "Y" || "$REPLY" = "Yes" || "$REPLY" = "yes" || "$REPLY" = "YES" ]]; then
-    echo "You must accept the terms & conditions to use this program"
+    dc_log "You must accept the terms & conditions to use this program"
     exit
 fi
 
@@ -57,7 +63,7 @@ if [[ $os == *"CentOS"* ]]
 then
     for package in "openssl augeas-libs augeas mod_ssl"; do
         if yum list installed "$package" >> ${LOG_FILE} 2>&1; then
-            echo "Prerequisite package $package is already installed."
+            dc_log "Prerequisite package $package is already installed."
         else
             INSTALL_PACKAGES="$INSTALL_PACKAGES $package"
             install_cmd="yum"
@@ -66,7 +72,7 @@ then
 else
     for package in $CHECK_INSTALL_PACKAGES; do
         if dpkg --get-selections | grep -q "^$package[[:space:]]*install$" >> ${LOG_FILE}; then
-            echo "Prerequisite package $package is already installed."
+            dc_log "Prerequisite package $package is already installed."
         else
             INSTALL_PACKAGES="$INSTALL_PACKAGES $package"
             install_cmd="apt-get"
@@ -79,15 +85,15 @@ fi
 if [[ $os == *"CentOS"* ]]; then
     if [ "rpm -qa | grep python-pip = """ ]
     then
-        echo "Python PIP package needs to be installed.  Installing it now..."
+        dc_log "Python PIP package needs to be installed.  Installing it now..."
         wget --no-check-certificate --directory-prefix=/tmp https://bootstrap.pypa.io/get-pip.py >> ${LOG_FILE} 2>&1
         sudo python /tmp/get-pip.py >> ${LOG_FILE} 2>&1
     else
-        echo "Prerequisite python-pip package is already installed."
+        dc_log "Prerequisite python-pip package is already installed."
     fi
 else
     if [ "dpkg-query -W python-pip | awk {'print $1'} = """ ]; then
-        echo "Python PIP package needs to be installed.  Installing it now..."
+        dc_log "Python PIP package needs to be installed.  Installing it now..."
         sudo apt-get install -q -y python-pip >> ${LOG_FILE} 2>&1
     fi
 fi
@@ -98,7 +104,7 @@ PYTHON_PACKAGES=""
 for package in $CHECK_PYTHON_PACKAGES; do
     installed_package=`pip list | grep $package | cut -c -${#package}`
     if [ "$installed_package" = "$package" ]; then
-        echo "Prerequisite Python package $package is already installed."
+        dc_log "Prerequisite Python package $package is already installed."
     else
         PYTHON_PACKAGES="$PYTHON_PACKAGES $package"
     fi
@@ -109,7 +115,7 @@ MISSING_DIGICERT_PYTHON_PACKAGES=""
 for package in $DIGICERT_PYTHON_PACKAGES; do
     installed_package=`pip list | grep $package | cut -c -${#package}`
     if [ "$installed_package" = "$package" ]; then
-        echo "Prerequisite Python package $package is already installed."
+        dc_log "Prerequisite Python package $package is already installed."
     else
         MISSING_DIGICERT_PYTHON_PACKAGES="$MISSING_DIGICERT_PYTHON_PACKAGES $package"
     fi
@@ -117,13 +123,13 @@ done
 
 # show what needs to be installed
 if ! [ "$INSTALL_PACKAGES" = "" ]; then
-    echo "The following system packages need to be installed: $INSTALL_PACKAGES"
+    dc_log "The following system packages need to be installed: $INSTALL_PACKAGES"
 fi
 if ! [ "$PYTHON_PACKAGES" = "" ]; then
-    echo "The following Python packages need to be installed: $PYTHON_PACKAGES"
+    dc_log "The following Python packages need to be installed: $PYTHON_PACKAGES"
 fi
 if ! [ "$MISSING_DIGICERT_PYTHON_PACKAGES" = "" ]; then
-    echo "The following DigiCert packages need to be installed: $MISSING_DIGICERT_PYTHON_PACKAGES"
+    dc_log "The following DigiCert packages need to be installed: $MISSING_DIGICERT_PYTHON_PACKAGES"
 fi
 
 
@@ -132,32 +138,32 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" && $MISSING_DIGICERT
     read -p "Do you wish to install these packages? [Y/n] " REPLY
     if ! [ "$REPLY" = "n" ]; then
         if ! [ "$INSTALL_PACKAGES" = "" ]; then
-            echo "Installing packages...$INSTALL_PACKAGES. Please wait."
+            dc_log "Installing packages...$INSTALL_PACKAGES. Please wait."
             sudo $install_cmd -q -y install $INSTALL_PACKAGES >> ${LOG_FILE} 2>&1
             if [ $? -ne 0 ]; then
-                echo "Installation of package $package failed - aborting."
+                dc_log "Installation of package $package failed - aborting."
                 exit
             fi
         fi
         if ! [ "$PYTHON_PACKAGES" = "" ]; then
-            echo "Installing modules...$PYTHON_PACKAGES. Please wait."
+            dc_log "Installing modules...$PYTHON_PACKAGES. Please wait."
             sudo pip install $PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
             if [ $? -ne 0 ]; then
-                echo "Installation of package $package failed - aborting."
+                dc_log "Installation of package $package failed - aborting."
                 exit
             fi
         fi
         if ! [ "$MISSING_DIGICERT_PYTHON_PACKAGES" = "" ]; then
-            echo "Installing modules...$MISSING_DIGICERT_PYTHON_PACKAGES. Please wait."
+            dc_log "Installing modules...$MISSING_DIGICERT_PYTHON_PACKAGES. Please wait."
             sudo pip install --pre $MISSING_DIGICERT_PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
             if [ $? -ne 0 ]; then
-                echo "Installation of package $package failed - aborting."
+                dc_log "Installation of package $package failed - aborting."
                 exit
             fi
         fi
-        echo "All prerequisite packages have been installed."
+        dc_log "All prerequisite packages have been installed."
     else
-        echo "Aborting installation."
+        dc_log "Aborting installation."
         exit
     fi
 fi
@@ -175,11 +181,11 @@ if [ -e "$LINK_PATH" ]; then
 
     sudo ln -s "$LINK_PATH" "$LINK_DIR"
     sudo chmod 755 "$LINK_PATH"
-	echo ""
-	echo "DigiCert Express Install has been installed on your system."
-	echo "As root, run 'express_install all' to install your certificate,"
-	echo "or 'express_install --help' for more information."
-	echo ""
+	dc_log ""
+	dc_log "DigiCert Express Install has been installed on your system."
+	dc_log "As root, run 'express_install all' to install your certificate,"
+	dc_log "or 'express_install --help' for more information."
+	dc_log ""
 fi
 
 
@@ -200,18 +206,19 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
         echo "$CERTIFICATE_CHAIN" >> "$FILEPATH/$CERT_NAME.pem"
 
         # run express install
-        echo "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
+        dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
         sudo express_install all --domain "$DOMAIN" --order_id "$ORDER"
     else
         # run express install
-        echo "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\" --create_csr"
+        dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\" --create_csr"
         sudo express_install all --domain "$DOMAIN" --order_id "$ORDER" --create_csr
     fi
 else
-    echo "ERROR: You are missing your domain name or order id, please contact digicert support"
+    dc_log "ERROR: You are missing your domain name or order id, please contact digicert support"
 fi
 
-echo "" >> ${LOG_FILE}
-echo "" >> ${LOG_FILE}
-echo "DigiCert Express Install Finished" >> ${LOG_FILE}
-echo `date` >> ${LOG_FILE}
+dc_log
+dc_log
+dc_log "DigiCert Express Install Finished"
+end_date=`date`
+dc_log "${end_date}"
