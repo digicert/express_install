@@ -11,6 +11,7 @@ LOG_FILE="digicert_express_install.log"
 touch ${LOG_FILE}
 echo `date` >> ${LOG_FILE}
 
+echo "By using this program you agree to the terms at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf"
 
 # check for distribution, debian, centos, ubuntu
 if [ -f /etc/lsb-release ]
