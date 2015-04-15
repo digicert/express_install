@@ -12,7 +12,7 @@ touch ${LOG_FILE}
 echo `date` >> ${LOG_FILE}
 
 read -p "I agree to the terms & conditions at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf [y/N] " REPLY
-if ! [[ "$REPLY" = "y" || "$REPLY" = "Y" ]]; then
+if ! [[ "$REPLY" = "y" || "$REPLY" = "Y" || "$REPLY" = "Yes" || "$REPLY" = "yes" || "$REPLY" = "YES" ]]; then
     echo "You must accept the terms & conditions to use this program"
     exit
 fi
