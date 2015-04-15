@@ -11,8 +11,8 @@ LOG_FILE="digicert_express_install.log"
 touch ${LOG_FILE}
 echo `date` >> ${LOG_FILE}
 
-read -p "I agree to the terms & conditions at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf [Y/n] " REPLY
-if [ "$REPLY" = "n" ]; then
+read -p "I agree to the terms & conditions at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf [y/N] " REPLY
+if ! [[ "$REPLY" = "y" || "$REPLY" = "Y" ]]; then
     echo "You must accept the terms & conditions to use this program"
     exit
 fi
