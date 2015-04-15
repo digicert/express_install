@@ -5,7 +5,8 @@ echo "DigiCert Express Install Bootstrapper"
 echo
 
 CHECK_INSTALL_PACKAGES=""
-CHECK_PYTHON_PACKAGES="digicert-client digicert-express python-augeas"
+DIGICERT_PYTHON_PACKAGES="digicert-client digicert-express"
+CHECK_PYTHON_PACKAGES="python-augeas"
 LOG_FILE="digicert_express_install.log"
 touch ${LOG_FILE}
 echo `date` >> ${LOG_FILE}
@@ -58,7 +59,7 @@ then
     done
 else
     for package in $CHECK_INSTALL_PACKAGES; do
-        if dpkg --get-selections | grep -q "^$package[[:space:]]*install$" >/dev/null; then
+        if dpkg --get-selections | grep -q "^$package[[:space:]]*install$" >> ${LOG_FILE}; then
             echo "Prerequisite package $package is already installed."
         else
             INSTALL_PACKAGES="$INSTALL_PACKAGES $package"
@@ -68,7 +69,7 @@ else
 fi
 
 
-# check for python-pip dependancy
+# check for python-pip dependency
 if [[ $os == *"CentOS"* ]]; then
     if [ "rpm -qa | grep python-pip = """ ]
     then
@@ -98,6 +99,16 @@ for package in $CHECK_PYTHON_PACKAGES; do
 done
 
 
+MISSING_DIGICERT_PYTHON_PACKAGES=""
+for package in $DIGICERT_PYTHON_PACKAGES; do
+    installed_package=`pip list | grep $package | cut -c -${#package}`
+    if [ "$installed_package" = "$package" ]; then
+        echo "Prerequisite Python package $package is already installed."
+    else
+        MISSING_DIGICERT_PYTHON_PACKAGES="$MISSING_DIGICERT_PYTHON_PACKAGES $package"
+    fi
+done
+
 # show what needs to be installed
 if ! [ "$INSTALL_PACKAGES" = "" ]; then
     echo "The following system packages need to be installed: $INSTALL_PACKAGES"
@@ -105,10 +116,13 @@ fi
 if ! [ "$PYTHON_PACKAGES" = "" ]; then
     echo "The following Python packages need to be installed: $PYTHON_PACKAGES"
 fi
+if ! [ "$MISSING_DIGICERT_PYTHON_PACKAGES" = "" ]; then
+    echo "The following DigiCert packages need to be installed: $MISSING_DIGICERT_PYTHON_PACKAGES"
+fi
 
 
 # install the dependencies
-if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
+if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" && $MISSING_DIGICERT_PYTHON_PACKAGES = "" ]]; then
     read -p "Do you wish to install these packages? [Y/n] " REPLY
     if ! [ "$REPLY" = "n" ]; then
         if ! [ "$INSTALL_PACKAGES" = "" ]; then
@@ -121,7 +135,15 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" ]]; then
         fi
         if ! [ "$PYTHON_PACKAGES" = "" ]; then
             echo "Installing modules...$PYTHON_PACKAGES. Please wait."
-            sudo pip install --pre $PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
+            sudo pip install $PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
+            if [ $? -ne 0 ]; then
+                echo "Installation of package $package failed - aborting."
+                exit
+            fi
+        fi
+        if ! [ "$MISSING_DIGICERT_PYTHON_PACKAGES" = "" ]; then
+            echo "Installing modules...$MISSING_DIGICERT_PYTHON_PACKAGES. Please wait."
+            sudo pip install --pre $MISSING_DIGICERT_PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
             if [ $? -ne 0 ]; then
                 echo "Installation of package $package failed - aborting."
                 exit
