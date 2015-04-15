@@ -11,7 +11,12 @@ LOG_FILE="digicert_express_install.log"
 touch ${LOG_FILE}
 echo `date` >> ${LOG_FILE}
 
-echo "By using this program you agree to the terms at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf"
+read -p "I agree to the terms & conditions at: https://www.digicert.com/docs/agreements/DigiCert_SA.pdf [Y/n] " REPLY
+if [ "$REPLY" = "n" ]; then
+    echo "You must accept the terms & conditions to use this program"
+    exit
+fi
+
 
 # check for distribution, debian, centos, ubuntu
 if [ -f /etc/lsb-release ]
