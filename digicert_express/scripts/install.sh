@@ -202,8 +202,8 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
         CERT_NAME=`echo "$DOMAIN" | sed -e "s/\./_/g"`
 
         # write the certificate to file
-        echo "$CERTIFICATE" >> "$FILEPATH/$CERT_NAME.crt"
-        echo "$CERTIFICATE_CHAIN" >> "$FILEPATH/$CERT_NAME.pem"
+        echo "$CERTIFICATE" > "$FILEPATH/$CERT_NAME.crt"
+        echo "$CERTIFICATE_CHAIN" > "$FILEPATH/$CERT_NAME.pem"
 
         # run express install
         dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
