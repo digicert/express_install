@@ -220,7 +220,7 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False,
 
             if len(matching_files) == 1:
                 return matching_files[0]
-            else:
+            elif len(matching_files) > 1:
                 resp = None
                 while not resp:
                     for i in range(0, len(matching_files)):
@@ -327,6 +327,7 @@ def download_cert(args):
     order_id = args.order_id
     domain = args.domain
 
+    order = None
     if not order_id and not domain:
         order = _select_from_orders()
 
