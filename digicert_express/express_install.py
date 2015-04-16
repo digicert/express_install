@@ -18,7 +18,6 @@ from loggers.express_install_logger import ExpressInstallLogger
 from cqrs import LoginCommand
 from digicert_client import CertificateOrder, Request
 
-
 APACHE_COMMANDS = {
     'LinuxMint': 'service apache2 restart',
     'CentOS': 'service httpd restart',
@@ -179,7 +178,7 @@ def configure_apache(args):
             return
 
     if not key:
-        key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
+        key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True, cert=cert)
         if not key:
             LOGGER.error('No valid private key file located; aborting.')
             return
@@ -190,7 +189,7 @@ def configure_apache(args):
         LOGGER.info('Please restart Apache for your changes to take effect.')
 
 
-def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
+def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, cert=None):
     LOGGER.info("Looking for {0}...".format(file_type))
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
@@ -199,20 +198,33 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
     for cfg_file_name in names:
         file_path = os.path.join(CFG_PATH, cfg_file_name)
         if os.path.exists(file_path):
-            return file_path
+            return_file = True
+            if validate_key:
+                if not cert or not _validate_key(file_path, cert):
+                    return_file = False
+            if return_file:
+                return file_path
 
     # Search the filesystem
     for cfg_file_name in names:
         command = "find / -type f -name {0}".format(cfg_file_name)
         files = os.popen(command).read().splitlines()
         if len(files) > 0:
-            if len(files) == 1:
-                return files[0]
+            matching_files = list()
+            for file in files:
+                if validate_key:
+                    if cert and _validate_key(file, cert):
+                        matching_files.append(file)
+                else:
+                    matching_files.append(file)
+
+            if len(matching_files) == 1:
+                return matching_files[0]
             else:
                 resp = None
                 while not resp:
-                    for i in range(0, len(files)):
-                        print "{0}.\t{1}".format(i + 1, files[i])
+                    for i in range(0, len(matching_files)):
+                        print "{0}.\t{1}".format(i + 1, matching_files[i])
 
                     resp = raw_input("\nPlease select the {0} you wish to secure "
                                      "from the list above (q to quit): ".format(file_type))
@@ -221,7 +233,7 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
                         # validate the input, catch any exceptions from casting to an int and validate the
                         # int value makes sense
                         try:
-                            if int(resp) > len(files) or int(resp) < 0:
+                            if int(resp) > len(matching_files) or int(resp) < 0:
                                 raise Exception
                         except Exception as e:
                             resp = None
@@ -232,24 +244,45 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True):
                         continue
                 if resp and resp != 'q':
                     selection = int(resp) - 1
-                    return files[selection]
+                    return matching_files[selection]
 
     if prompt:
         # At this point we haven't found any matching files so we need to prompt for one
         file_path = None
         try:
             while not file_path:
-                file_path = raw_input('%s file could not be found.  Please provide a path to the file: ' % file_type)
-                if os.path.exists(file_path):
-                    break
-                if len(file_path):
-                    print 'No such file or directory: "%s"' % file_path
-                file_path = None
+                try:
+                    file_path = raw_input('%s file could not be found.  Please provide a path to the file: ' % file_type)
+                    if os.path.exists(file_path):
+                        if validate_key and cert:
+                            if not _validate_key(file_path, cert):
+                                raise Exception("This key ({0}) does not match your certificate ({1}), please try again.".format(file_path, cert))
+                            else:
+                                break
+                        else:
+                            break
+                    if len(file_path):
+                        raise Exception('No such file or directory: "%s"' % file_path)
+                    file_path = None
+                except Exception, e:
+                    file_path = None
+                    print e.message
+                    print ''
         except KeyboardInterrupt:
             print ''
             LOGGER.error('No valid file selected.')
             print ''
         return file_path
+
+
+def _validate_key(key, cert):
+    key_command = "openssl rsa -noout -modulus -in \"{0}\" | openssl md5".format(key)
+    crt_command = "openssl x509 -noout -modulus -in \"{0}\" | openssl md5".format(cert)
+
+    key_modulus = os.popen(key_command).read()
+    crt_modulus = os.popen(crt_command).read()
+
+    return key_modulus == crt_modulus
 
 
 def _configure_apache(host, cert, key, chain, apache_config=None, dry_run=False):
@@ -609,7 +642,7 @@ def do_everything(args):
             # is submitted and a new key is generated apache2 may not restart due to a key mismatch
             # FIXME we need to work out a 're-issue' scenario at some point
             if not key:
-                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', prompt=False)
+                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
 
             csr = None
             if key:
@@ -640,12 +673,6 @@ def do_everything(args):
                 if not _upload_csr(order_id, csr):
                     LOGGER.error("We could not upload your csr file, please try again or contact DigiCert support.")
                     return
-        elif not key:
-            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
-
-        if not key:
-            LOGGER.error('No valid private key file located; aborting.')
-            return
 
         cert = None
         chain = None
@@ -661,6 +688,13 @@ def do_everything(args):
             certs = _download_cert(order_id, CFG_PATH, common_name)
             chain = certs['chain']
             cert = certs['cert']
+
+        if not key:
+            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True, cert=cert)
+
+        if not key:
+            LOGGER.error('No valid private key file located; aborting.')
+            return
 
         # make the changes to apache
         _configure_apache(domain, cert, key, chain, dry_run=args.dry_run)
