@@ -198,7 +198,7 @@ CERTIFICATE=""
 CERTIFICATE_CHAIN=""
 if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
     if ! [[ "$CERTIFICATE" = "" || "$CERTIFICATE_CHAIN" = "" ]]; then
-        mkdir -p "$FILEPATH"
+        sudo mkdir -p "$FILEPATH"
         CERT_NAME=`echo "$DOMAIN" | sed -e "s/\./_/g"`
 
         # write the certificate to file
