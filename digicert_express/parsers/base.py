@@ -85,7 +85,7 @@ class BaseParser(object):
         except Exception, e:
             self.check_for_parsing_errors()
             raise ParserException(
-                "An error occurred while loading your apache configuration.\n{0}".format(e),
+                "An error occurred while loading your apache configuration.\n{0}".format(e.message),
                 self.directives)
 
     @staticmethod
@@ -153,8 +153,11 @@ class BaseParser(object):
             lens_path = self.aug.get(path + "/lens")
             if lens_path and "httpd.aug" in lens_path:
                 # strip off /augeas/files and /error
-                errors.append("Error parsing the file: {0} {1}".format(
-                    path[13:len(path) - 6], self.aug.get(path + "/message")))
+                error_message = self.aug.get(path + "/message")
+                error_line = self.aug.get(path + "/line")
+
+                errors.append("Error parsing the file: {0} {1} at line #{2}".format(
+                    path[13:len(path) - 6], error_message, error_line))
 
         if len(errors) > 0:
             error_msg = "The following errors occurred while parsing your configuration file:"
@@ -351,7 +354,8 @@ class BaseParser(object):
     def set_certificate_directives(self, vhost_path):
         try:
             if not vhost_path:
-                raise Exception("Virtual Host was not found for {0}".format(self.domain))
+                raise Exception("Virtual Host was not found for {0}.  Please verify that the 'ServerName' directive in "
+                                "your Virtual Host is set to {1} and try again.".format(self.domain, self.domain))
 
             # back up the configuration file
             host_file = get_path_to_file(vhost_path)
