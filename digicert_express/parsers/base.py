@@ -39,6 +39,9 @@ class BaseParser(object):
         if not domain:
             raise ParserException("You need to specify a domain name to secure")
 
+        if domain not in storage_path:
+            storage_path = "{0}/{1}".format(storage_path, domain.replace('.', '_'))
+
         if self.dry_run:
             self.lines = list()
 
@@ -49,11 +52,11 @@ class BaseParser(object):
 
         # verify that the files exist and are readable by the user
         cert_path = verify_and_normalize_file(cert_path, "Certificate file", domain.replace(".", "_") + ".crt",
-                                              apache_user, storage_path, logger, dry_run)
-        chain_path = verify_and_normalize_file(chain_path, "CA Chain file", domain.replace(".", "_") + ".pem",
-                                               apache_user, storage_path, logger, dry_run)
+                                              apache_user, storage_path, logger, dry_run, keep_original = False)
+        chain_path = verify_and_normalize_file(chain_path, "CA Chain file", "DigiCertCA.crt",
+                                               apache_user, storage_path, logger, dry_run, keep_original = False)
         key_path = verify_and_normalize_file(key_path, "Key file", domain.replace(".", "_") + ".key",
-                                             apache_user, storage_path, logger, dry_run)
+                                             apache_user, storage_path, logger, dry_run, keep_original = True)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -430,7 +433,7 @@ class BaseParser(object):
             self.aug.load()
 
 
-def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, logger, dry_run=False):
+def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, logger, dry_run=False, keep_original=False):
 
     """
     Verify that the file exists, move it to a common location, & set the proper permissions
@@ -456,7 +459,10 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     if storage_path != path or old_name != name:
         normalized_cfg_file = '%s/%s' % (storage_path, name)
         if not dry_run:
-            shutil.copy(file_path, normalized_cfg_file)
+            if keep_original:
+                shutil.copy(file_path, normalized_cfg_file)
+            else:
+                shutil.move(file_path, normalized_cfg_file)
             logger.info('Copied %s to %s...' % (file_path, normalized_cfg_file))
         file_path = normalized_cfg_file
 

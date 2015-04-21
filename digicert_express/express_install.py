@@ -167,19 +167,19 @@ def configure_apache(args):
     LOGGER.info("Updating the Apache configuration with SSL settings.")
 
     if not cert:
-        cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate')
+        cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate', default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
         if not cert:
             LOGGER.error('No valid certificate file located; aborting.')
             return
 
     if not chain:
-        chain = _locate_cfg_file(['%s.pem' % common_name.replace('.', '_'), 'DigiCertCA.crt'], 'Certificate chain')
+        chain = _locate_cfg_file(['DigiCertCA.crt'], 'Certificate chain', default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
         if not chain:
             LOGGER.error('No valid certificate chain file located; aborting.')
             return
 
     if not key:
-        key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True, cert=cert)
+        key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True, cert=cert, default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
         if not key:
             LOGGER.error('No valid private key file located; aborting.')
             return
@@ -190,14 +190,14 @@ def configure_apache(args):
         LOGGER.info('Please restart Apache for your changes to take effect.')
 
 
-def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, cert=None):
+def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, cert=None, default_search_path=CFG_PATH):
     LOGGER.info("Looking for {0}...".format(file_type))
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
     else:
         names = cfg_file_names
     for cfg_file_name in names:
-        file_path = os.path.join(CFG_PATH, cfg_file_name)
+        file_path = os.path.join(default_search_path, cfg_file_name)
         if os.path.exists(file_path):
             return_file = True
             if validate_key:
@@ -644,7 +644,7 @@ def do_everything(args):
             # is submitted and a new key is generated apache2 may not restart due to a key mismatch
             # FIXME we need to work out a 're-issue' scenario at some point
             if not key:
-                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key')
+                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
 
             csr = None
             if key:
@@ -652,7 +652,7 @@ def do_everything(args):
                 order_info = _get_order_info(order_id)
                 if order_info['status'] == "needs_csr":
                     # if we found a key and the status is 'needs_csr' we expect to find the csr file as well
-                    csr = _locate_cfg_file('%s.csr' % common_name.replace('.', '_'), 'CSR file', prompt=False)
+                    csr = _locate_cfg_file('%s.csr' % common_name.replace('.', '_'), 'CSR file', prompt=False, default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
 
                     if not csr:
                         # back up the existing key
@@ -682,8 +682,8 @@ def do_everything(args):
             # if we didn't create the csr for them previously, their chain and cert could be on the filesystem
             # attempt to locate the cert and chain files
             # FIXME should we prompt the user to input the path to their files at this point?
-            cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate', prompt=False)
-            chain = _locate_cfg_file(['%s.pem' % common_name.replace('.', '_'), 'DigiCertCA.crt'], 'Certificate chain', prompt=False)
+            cert = _locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate', prompt=False, default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
+            chain = _locate_cfg_file(['DigiCertCA.crt'], 'Certificate chain', prompt=False, default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
 
         # if we still don't have the cert and chain files, download them
         if not cert or not chain:
@@ -692,7 +692,7 @@ def do_everything(args):
             cert = certs['cert']
 
         if not key:
-            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True, cert=cert)
+            key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True, cert=cert, default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
 
         if not key:
             LOGGER.error('No valid private key file located; aborting.')

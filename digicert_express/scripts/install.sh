@@ -191,8 +191,9 @@ fi
 
 # DYNAMIC STUFF
 # order details
-FILEPATH="/etc/digicert"
 DOMAIN=""
+DOMAIN_PATH=`echo "$DOMAIN" | sed -e "s/\./_/g"`
+FILEPATH="/etc/digicert/$DOMAIN_PATH"
 ORDER=""
 CERTIFICATE=""
 CERTIFICATE_CHAIN=""
@@ -203,7 +204,7 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
 
         # write the certificate to file
         echo "$CERTIFICATE" > "$FILEPATH/$CERT_NAME.crt"
-        echo "$CERTIFICATE_CHAIN" > "$FILEPATH/$CERT_NAME.pem"
+        echo "$CERTIFICATE_CHAIN" > "$FILEPATH/DigiCertCA.crt"
 
         # run express install
         dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
