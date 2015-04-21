@@ -102,6 +102,7 @@ def run():
         print ''
         LOGGER.info('DigiCert Express Install')
         print ''
+        verify_requirements()
         args.func(args)
     except Exception, e:
         LOGGER.error(e.message)
@@ -785,9 +786,55 @@ def _check_for_site_openssl(domain):
     return False
 
 
+def verify_requirements():
+    import sys
+    import re
+    from distutils.version import StrictVersion
+    distro = platform.linux_distribution()
+    os_name = distro[0]
+    os_version = distro[1]
+    python = sys.version_info
+    python_version = ''.join('%d.' % elem for elem in python[:3])
+    python_version = python_version[:-1]
+
+    apache = os.popen("`which %s` -v | grep version" % APACHE_PROCESS_NAMES.get(distro[0])).read()
+    matches = re.findall(r"([0-9.]*[0-9]+)", apache)
+
+    errors = []
+    if len(matches) == 1:
+        apache_version = matches[0]
+
+        print "You are running %s version %s with Apache %s and Python %s" % (distro[0], distro[1], apache_version, python_version)
+
+        if os_name == 'Ubuntu':
+            if StrictVersion(os_version) < StrictVersion('14.04'):
+                errors.append("Your version of Ubuntu (%s) is not supported.  Ubuntu version 14.04 or higher is required." % os_version)
+            if StrictVersion(python_version) < StrictVersion('2.7'):
+                errors.append("Your version of Python (%s) is not supported.  Python version 2.7 or higher is required." % python_version)
+            if StrictVersion(apache_version) < StrictVersion('2.4'):
+                errors.append("Your version of Apache (%s) is not supported.  Apache version 2.4 or higher is required." % apache_version)
+        elif os_name == 'CentOS':
+            if StrictVersion(os_version) < StrictVersion('6.5'):
+                errors.append("Your version of CentOS (%s) is not supported.  CentOS version 6.5 or higher is required." % os_version)
+            if StrictVersion(python_version) < StrictVersion('2.6'):
+                errors.append("Your version of Python (%s) is not supported.  Python version 2.6 or higher is required." % python_version)
+            if StrictVersion(apache_version) < StrictVersion('2.2'):
+                errors.append("Your version of Apache (%s) is not supported.  Apache version 2.2 or higher is required." % apache_version)
+        else:
+            errors.append("%s is not a supported operating system.  Ubuntu 14.04+ and CentOS 6.5+ are supported.")
+    else:
+        errors.append("No Apache version detected, please verify that Apache is installed and running")
+
+    if len(errors) > 0:
+        error_msg = "ERROR: Your system does not meet the minimum requirements to run this program:"
+        for error in errors:
+            error_msg = "%s\n%s" % (error_msg, error)
+        raise Exception(error_msg)
+
+
 def check_for_deps(args):
     distro = platform.linux_distribution()
-    if distro == 'CentOS':
+    if distro[0] == 'CentOS':
         check_for_deps_centos(args.verbose)
     else:
         check_for_deps_debian(args.verbose)
