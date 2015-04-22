@@ -105,8 +105,10 @@ def run():
         verify_requirements()
         args.func(args)
     except Exception, e:
-        LOGGER.error(e.message)
+        LOGGER.error(e)
         print ''
+        import traceback
+        print traceback.print_exc()
 
 
 def restart_apache(args):
@@ -315,6 +317,7 @@ def _get_temp_api_key():
 
     try:
         api_key = result['api_key']
+        print api_key
         return api_key
     except KeyError:
         api_key = None
@@ -644,7 +647,7 @@ def do_everything(args):
             # is submitted and a new key is generated apache2 may not restart due to a key mismatch
             # FIXME we need to work out a 're-issue' scenario at some point
             if not key:
-                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
+                key = _locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', prompt=False, default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
 
             csr = None
             if key:
@@ -870,20 +873,19 @@ def check_for_deps_centos(verbose=False):
         import yum
         yb = yum.YumBase()
         packages = yb.rpmdb.returnPackages()
-        for p in packages:
-            for package_name in RH_DEPS:
-                if package_name in [x.name for x in packages]:
-                    continue
+        for package_name in RH_DEPS:
+            if package_name in [x.name for x in packages]:
+                continue
+            else:
+                if raw_input('Install: %s (Y/n) ' % package_name).lower().strip() == 'n':
+                    LOGGER.info("Please install %s package yourself: " % package_name)
+                    raw_input("Press enter to continue: ")
                 else:
-                    if raw_input('Install: %s (Y/n) ' % p.name).lower().strip() == 'n':
-                        LOGGER.info("Please install %s package yourself: " % package_name)
-                        raw_input("Press enter to continue: ")
+                    LOGGER.info("Installing %s..." % package_name)
+                    if verbose:
+                        yb.install(name=package_name)
                     else:
-                        LOGGER.info("Installing %s..." % p.name)
-                        if verbose:
-                            yb.install(name=p.name)
-                        else:
-                            os.system('yum -y install %s &>> %s' % (p.name, LOGFILE))
+                        os.system('yum -y install %s &>> %s' % (package_name, LOGFILE))
     except ImportError:
         pass
 
