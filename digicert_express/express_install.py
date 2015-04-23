@@ -107,8 +107,6 @@ def run():
     except Exception, e:
         LOGGER.error(e)
         print ''
-        import traceback
-        print traceback.print_exc()
 
 
 def restart_apache(args):
@@ -318,7 +316,6 @@ def _get_temp_api_key():
     try:
         api_key = result['api_key']
         print api_key
-        return api_key
     except KeyError:
         api_key = None
     return
@@ -806,8 +803,6 @@ def verify_requirements():
     errors = []
     if len(matches) == 1:
         apache_version = matches[0]
-
-        print "You are running %s version %s with Apache %s and Python %s" % (distro[0], distro[1], apache_version, python_version)
 
         if os_name == 'Ubuntu':
             if StrictVersion(os_version) < StrictVersion('14.04'):
