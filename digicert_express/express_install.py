@@ -315,7 +315,7 @@ def _get_temp_api_key():
 
     try:
         api_key = result['api_key']
-        print api_key
+        return api_key
     except KeyError:
         api_key = None
     return
@@ -532,39 +532,42 @@ def _get_order_by_domain(domain):
 def _select_from_orders():
     orders = _get_valid_orders()
     resp = None
-    if len(orders) > 1:
-        while not resp or resp == "" or resp.isalpha():
-            i = 1
-            for order in orders:
-                print "{0}.\t{1}".format(i, order['certificate']['common_name'])
-                i += 1
+    if orders:
+        if len(orders) > 1:
+            while not resp or resp == "" or resp.isalpha():
+                i = 1
+                for order in orders:
+                    print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+                    i += 1
 
-            resp = raw_input("\nPlease select the domain you wish to secure from the list above (q to quit): ")
+                resp = raw_input("\nPlease select the domain you wish to secure from the list above (q to quit): ")
 
-            if resp != 'q':
-                # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
-                try:
-                    if int(resp) > len(orders) or int(resp) < 0:
-                        raise Exception
-                except Exception as e:
-                    resp = None
-                    print ""
-                    print "ERROR: Invalid number, please try again."
-                    print ""
-            else:
-                raise Exception("No domain selected; aborting.")
+                if resp != 'q':
+                    # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
+                    try:
+                        if int(resp) > len(orders) or int(resp) < 0:
+                            raise Exception
+                    except Exception as e:
+                        resp = None
+                        print ""
+                        print "ERROR: Invalid number, please try again."
+                        print ""
+                else:
+                    raise Exception("No domain selected; aborting.")
 
-    else:
-        # there is only one order, choose it
-        order_id = orders[0]['id']
-        domain = orders[0]['certificate']['common_name']
-        if raw_input("Continue with certificate {0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
-            resp = 1
         else:
-            raise Exception("No certificate selected; aborting.")
+            # there is only one order, choose it
+            order_id = orders[0]['id']
+            domain = orders[0]['certificate']['common_name']
+            if raw_input("Continue with certificate {0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
+                resp = 1
+            else:
+                raise Exception("No certificate selected; aborting.")
 
-    selection = int(resp) - 1
-    return orders[selection]
+        selection = int(resp) - 1
+        return orders[selection]
+    else:
+        raise Exception("No orders found; aborting.")
 
 
 def _create_csr(server_name, org="", city="", state="", country="", key_size=2048):
