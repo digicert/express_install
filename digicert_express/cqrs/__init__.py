@@ -11,6 +11,7 @@ class LoginCommand(Command):
         # self._headers['Content-Type'] = 'application/json'
         self.set_header('Content-Type', 'application/json')
 
+
     def get_path(self):
         return '/services/v2/user/tempkey'
 

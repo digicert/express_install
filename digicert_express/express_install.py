@@ -311,7 +311,7 @@ def _get_temp_api_key():
 
     result = Request(action=LoginCommand(username, password), host=HOST).send()
     if result['http_status'] >= 300:
-        raise Exception('Download failed:  %d - %s' % (result['http_status'], result['http_reason']))
+        raise Exception('Login failed:  %d - %s' % (result['http_status'], result['http_reason']))
 
     try:
         api_key = result['api_key']
