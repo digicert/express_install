@@ -51,9 +51,29 @@ fi
 
 
 # add argparse to the install list if python < 2.7
-ret=`python -c 'import sys; print sys.version_info < (2, 7)'`
-if [ $ret = True ]; then
+PY_VERSION=`python -c 'import sys; print sys.version_info < (2, 7)'`
+if [ $PY_VERSION = True ]; then
     CHECK_PYTHON_PACKAGES="$CHECK_PYTHON_PACKAGES argparse"
+fi
+
+VERSION=`python -c 'import sys; print sys.version_info < (2, 6)'`
+
+# check for apache version
+if [[ $os == *"CentOS"* ]]
+then
+    APACHE_VERSION=`apachectl -v | grep 'Server version' | cut -d '/' -f 2 | cut -d ' ' -f 1`
+    if [[ ! $os =~ "6.5" ]] || [[ $VERSION = True ]] || [[ ! $APACHE_VERSION =~ "2.2" ]]; then
+        echo ""
+        echo "The requirements to run DigiCert Express Install are Cent OS 6.5 with Python 2.6.x and Apache 2.2.x"
+        echo ""
+    fi
+else
+    APACHE_VERSION=`apachectl -v | grep 'Server version' | cut -d '/' -f 2 | cut -d ' ' -f 1`
+    if [[ ! $os =~ "14.04" ]] || [[ $PY_VERSION = True ]] || [[ ! $APACHE_VERSION =~ "2.4" ]]; then
+        echo ""
+        echo "The requirements to run DigiCert Express Install are Ubuntu 14.04 with Python 2.7.x and Apache 2.4.x"
+        echo ""
+    fi
 fi
 
 
