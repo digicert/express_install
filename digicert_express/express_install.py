@@ -573,8 +573,8 @@ def _select_from_orders():
 def _create_csr(server_name, org="", city="", state="", country="", key_size=2048):
     LOGGER.info("Creating CSR file for {0}...".format(server_name))
     # remove http:// and https:// from server_name
-    server_name = server_name.lstrip("http://")
-    server_name = server_name.lstrip("https://")
+    server_name = server_name.replace("http://", "")
+    server_name = server_name.replace("https://", "")
 
     key_file_name = "{0}.key".format(server_name.replace('.', '_'))
     csr_file_name = "{0}.csr".format(server_name.replace('.', '_'))
