@@ -107,8 +107,6 @@ def run():
     except Exception, e:
         LOGGER.error(e)
         print ''
-        import traceback
-        print traceback.print_exc()
 
 
 def restart_apache(args):
@@ -313,11 +311,10 @@ def _get_temp_api_key():
 
     result = Request(action=LoginCommand(username, password), host=HOST).send()
     if result['http_status'] >= 300:
-        raise Exception('Download failed:  %d - %s' % (result['http_status'], result['http_reason']))
+        raise Exception('Login failed:  %d - %s' % (result['http_status'], result['http_reason']))
 
     try:
         api_key = result['api_key']
-        print api_key
         return api_key
     except KeyError:
         api_key = None
@@ -535,46 +532,49 @@ def _get_order_by_domain(domain):
 def _select_from_orders():
     orders = _get_valid_orders()
     resp = None
-    if len(orders) > 1:
-        while not resp or resp == "" or resp.isalpha():
-            i = 1
-            for order in orders:
-                print "{0}.\t{1}".format(i, order['certificate']['common_name'])
-                i += 1
+    if orders:
+        if len(orders) > 1:
+            while not resp or resp == "" or resp.isalpha():
+                i = 1
+                for order in orders:
+                    print "{0}.\t{1}".format(i, order['certificate']['common_name'])
+                    i += 1
 
-            resp = raw_input("\nPlease select the domain you wish to secure from the list above (q to quit): ")
+                resp = raw_input("\nPlease select the domain you wish to secure from the list above (q to quit): ")
 
-            if resp != 'q':
-                # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
-                try:
-                    if int(resp) > len(orders) or int(resp) < 0:
-                        raise Exception
-                except Exception as e:
-                    resp = None
-                    print ""
-                    print "ERROR: Invalid number, please try again."
-                    print ""
-            else:
-                raise Exception("No domain selected; aborting.")
+                if resp != 'q':
+                    # validate the input, catch any exceptions from casting to an int and validate the int value makes sense
+                    try:
+                        if int(resp) > len(orders) or int(resp) < 0:
+                            raise Exception
+                    except Exception as e:
+                        resp = None
+                        print ""
+                        print "ERROR: Invalid number, please try again."
+                        print ""
+                else:
+                    raise Exception("No domain selected; aborting.")
 
-    else:
-        # there is only one order, choose it
-        order_id = orders[0]['id']
-        domain = orders[0]['certificate']['common_name']
-        if raw_input("Continue with certificate {0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
-            resp = 1
         else:
-            raise Exception("No certificate selected; aborting.")
+            # there is only one order, choose it
+            order_id = orders[0]['id']
+            domain = orders[0]['certificate']['common_name']
+            if raw_input("Continue with certificate {0} (Order ID: {1})? (Y/n)".format(domain, order_id)) != 'n':
+                resp = 1
+            else:
+                raise Exception("No certificate selected; aborting.")
 
-    selection = int(resp) - 1
-    return orders[selection]
+        selection = int(resp) - 1
+        return orders[selection]
+    else:
+        raise Exception("No orders found; aborting.")
 
 
 def _create_csr(server_name, org="", city="", state="", country="", key_size=2048):
     LOGGER.info("Creating CSR file for {0}...".format(server_name))
     # remove http:// and https:// from server_name
-    server_name = server_name.lstrip("http://")
-    server_name = server_name.lstrip("https://")
+    server_name = server_name.replace("http://", "")
+    server_name = server_name.replace("https://", "")
 
     key_file_name = "{0}.key".format(server_name.replace('.', '_'))
     csr_file_name = "{0}.csr".format(server_name.replace('.', '_'))
@@ -806,8 +806,6 @@ def verify_requirements():
     errors = []
     if len(matches) == 1:
         apache_version = matches[0]
-
-        print "You are running %s version %s with Apache %s and Python %s" % (distro[0], distro[1], apache_version, python_version)
 
         if os_name == 'Ubuntu':
             if StrictVersion(os_version) < StrictVersion('14.04'):
