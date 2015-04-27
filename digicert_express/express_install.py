@@ -35,7 +35,7 @@ APACHE_PROCESS_NAMES = {
 DEB_DEPS_64 = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'openssl', 'python-pip']
 DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'openssl', 'python-pip']
 
-RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'python-pip', 'mod_ssl']
+RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'mod_ssl']
 
 HOST = 'localhost.digicert.com'
 
