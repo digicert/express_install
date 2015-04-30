@@ -6,6 +6,14 @@ function dc_log {
     echo $1 | tee -a ${LOG_FILE}
 }
 
+function cent_is_package_installed {
+  if yum list installed "$@" >/dev/null 2>&1; then
+    return 0
+  else
+    return 1
+  fi
+}
+
 dc_log
 dc_log "DigiCert Express Install Bootstrapper"
 dc_log
@@ -79,10 +87,11 @@ fi
 
 # check for dependencies installed
 INSTALL_PACKAGES=""
+PACKAGES="augeas openssl augeas-libs mod_ssl"
 if [[ $os == *"CentOS"* ]]
 then
-    for package in "openssl augeas-libs augeas mod_ssl"; do
-        if yum list installed "$package" >> ${LOG_FILE} 2>&1; then
+    for package in $PACKAGES; do
+        if cent_is_package_installed $package; then
             dc_log "Prerequisite package $package is already installed."
         else
             INSTALL_PACKAGES="$INSTALL_PACKAGES $package"
