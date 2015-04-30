@@ -208,7 +208,7 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False,
 
     # Search the filesystem
     for cfg_file_name in names:
-        command = "find ~ -type f -name {0}".format(cfg_file_name)
+        command = "find $(grep $SUDO_USER /etc/passwd | awk -F: '{{print $6}}') -type f -name {0}".format(cfg_file_name)
         files = os.popen(command).read().splitlines()
         if len(files) > 0:
             matching_files = list()
