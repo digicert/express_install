@@ -208,8 +208,11 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False,
 
     # Search the filesystem
     for cfg_file_name in names:
-        command = "find $(grep $SUDO_USER /etc/passwd | awk -F: '{{print $6}}') -type f -name {0}".format(cfg_file_name)
+        sudo_user_name = os.getenv("SUDO_USER")
+        sudo_user_home = "%s/%s" % ("/home", sudo_user_name)
+        command = "find {0} -type f -name {1}".format(sudo_user_home, cfg_file_name)
         files = os.popen(command).read().splitlines()
+
         if len(files) > 0:
             matching_files = list()
             for file in files:

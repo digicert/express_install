@@ -47,6 +47,26 @@ else
 fi
 
 
+# check for wget because CentOS needs it to install pip
+if [[ $os == *"CentOS"* ]]
+then
+    wget --version
+    if [ $? -eq 0 ]
+    then
+        dc_log "Prerequisite package wget is installed, continuing installation."
+    else
+        echo
+        pip -V
+        echo $?
+        if [ $? -eq 127 ]
+        then
+            dc_log "wget is not installed.  Please install wget by typing: 'sudo yum install wget'"
+            exit
+        fi
+    fi
+fi
+
+
 # check for architecture 32 bit or 64 bit
 MACHINE_TYPE=`uname -m`
 if [ ${MACHINE_TYPE} = "x86_64" ]; then
