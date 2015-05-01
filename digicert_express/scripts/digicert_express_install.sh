@@ -50,14 +50,12 @@ fi
 # check for wget because CentOS needs it to install pip
 if [[ $os == *"CentOS"* ]]
 then
-    wget --version
+    wget --version >> /dev/null 2>&1
     if [ $? -eq 0 ]
     then
         dc_log "Prerequisite package wget is installed, continuing installation."
     else
-        echo
-        pip -V
-        echo $?
+        pip -V >> /dev/null 2>&1
         if [ $? -eq 127 ]
         then
             dc_log "wget is not installed.  Please install wget by typing: 'sudo yum install wget'"
@@ -204,7 +202,7 @@ if ! [[ "$INSTALL_PACKAGES" = "" && "$PYTHON_PACKAGES" = "" && $MISSING_DIGICERT
         fi
         if ! [ "$MISSING_DIGICERT_PYTHON_PACKAGES" = "" ]; then
             dc_log "Installing modules...$MISSING_DIGICERT_PYTHON_PACKAGES. Please wait."
-            sudo pip install --pre $MISSING_DIGICERT_PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
+            sudo pip install --pre <?php echo $pypiSource ?> $MISSING_DIGICERT_PYTHON_PACKAGES >> ${LOG_FILE} 2>&1
             if [ $? -ne 0 ]; then
                 dc_log "Installation of package $package failed - aborting."
                 exit

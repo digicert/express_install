@@ -209,7 +209,9 @@ def _locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False,
     # Search the filesystem
     for cfg_file_name in names:
         sudo_user_name = os.getenv("SUDO_USER")
+        print sudo_user_name
         sudo_user_home = "%s/%s" % ("/home", sudo_user_name)
+        print sudo_user_home
         command = "find {0} -type f -name {1}".format(sudo_user_home, cfg_file_name)
         files = os.popen(command).read().splitlines()
 
