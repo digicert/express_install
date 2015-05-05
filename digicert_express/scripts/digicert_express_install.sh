@@ -45,6 +45,7 @@ elif [ -f /etc/redhat-release ]; then
 else
         os="$(uname -s) $(uname -r)"
 fi
+echo "Found OS: ${os}"
 
 
 # check for wget because CentOS needs it to install pip
@@ -130,17 +131,24 @@ fi
 
 # check for python-pip dependency
 if [[ $os == *"CentOS"* ]]; then
-    if [ "rpm -qa | grep python-pip = """ ]
+    pip -V >> /dev/null 2>&1
+    if [ $? -eq 127 ]
     then
-        dc_log "Python PIP package needs to be installed.  Installing it now..."
+        dc_log "Python PIP package needs to be installed."
+        dc_log "Downloading PIP install script to /tmp"
         wget --no-check-certificate --directory-prefix=/tmp https://bootstrap.pypa.io/get-pip.py >> ${LOG_FILE} 2>&1
+
+        dc_log "Installing PIP package from install script."
         sudo python /tmp/get-pip.py >> ${LOG_FILE} 2>&1
     else
         dc_log "Prerequisite python-pip package is already installed."
     fi
 else
     if [ "dpkg-query -W python-pip | awk {'print $1'} = """ ]; then
-        dc_log "Python PIP package needs to be installed.  Installing it now..."
+        dc_log "Updating repository."
+        sudo apt-get update >> ${LOG_FILE} 2>&1
+
+        dc_log "Python PIP package needs to be installed.  Installing PIP now from repository."
         sudo apt-get install -q -y python-pip >> ${LOG_FILE} 2>&1
     fi
 fi
@@ -226,6 +234,7 @@ if [ -e "$LINK_PATH" ]; then
         LINK_DIR="/usr/local/bin/express_install"
     fi
 
+    dc_log "Adding links to run DigiCert Express Install in ${LINK_DIR}"
     sudo ln -s "$LINK_PATH" "$LINK_DIR"
     sudo chmod 755 "$LINK_PATH"
 	dc_log ""
@@ -250,7 +259,10 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
         CERT_NAME=`echo "$DOMAIN" | sed -e "s/\./_/g"`
 
         # write the certificate to file
+        dc_log "Copying certificate file to $FILEPATH/$CERT_NAME.crt"
         echo "$CERTIFICATE" | sudo tee "$FILEPATH/$CERT_NAME.crt" > /dev/null
+
+        dc_log "Copying certificate chain file to $FILEPATH/DigiCertCA.crt"
         echo "$CERTIFICATE_CHAIN" | sudo tee "$FILEPATH/DigiCertCA.crt" > /dev/null
 
         # run express install

@@ -415,7 +415,7 @@ class BaseParser(object):
         except Exception, e:
             self.check_for_parsing_errors()
             raise ParserException(
-                "An error occurred while updating the Virtual Host for {0}.\n{1}".format(self.domain, e.message),
+                "An error occurred while updating the Virtual Host for {0}.\n{1}".format(self.domain, e),
                 self.directives)
 
         # format the file:
