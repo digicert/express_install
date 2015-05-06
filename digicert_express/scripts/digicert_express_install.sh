@@ -93,6 +93,7 @@ then
         echo ""
         echo "The requirements to run DigiCert Express Install are Cent OS 6.5 with Python 2.6.x and Apache 2.2.x"
         echo ""
+        exit
     fi
 else
     APACHE_VERSION=`apachectl -v | grep 'Server version' | cut -d '/' -f 2 | cut -d ' ' -f 1`
@@ -100,6 +101,7 @@ else
         echo ""
         echo "The requirements to run DigiCert Express Install are Ubuntu 14.04 with Python 2.7.x and Apache 2.4.x"
         echo ""
+        exit
     fi
 fi
 

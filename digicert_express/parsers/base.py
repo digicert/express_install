@@ -31,7 +31,7 @@ class BaseParser(object):
     def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert',
                  aug=None, logger=None, dry_run=False):
         if not logger:
-            logger = ExpressInstallLogger().get_logger()
+            self.logger = ExpressInstallLogger().get_logger()
 
         self.domain = domain
         self.dry_run = dry_run
@@ -51,12 +51,13 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
+        # TODO: logger as a class member doesn't need to be passed in
         cert_path = verify_and_normalize_file(cert_path, "Certificate file", domain.replace(".", "_") + ".crt",
-                                              apache_user, storage_path, logger, dry_run, keep_original = False)
+                                              apache_user, storage_path, self.logger, dry_run, keep_original = False)
         chain_path = verify_and_normalize_file(chain_path, "CA Chain file", "DigiCertCA.crt",
-                                               apache_user, storage_path, logger, dry_run, keep_original = False)
+                                               apache_user, storage_path, self.logger, dry_run, keep_original = False)
         key_path = verify_and_normalize_file(key_path, "Key file", domain.replace(".", "_") + ".key",
-                                             apache_user, storage_path, logger, dry_run, keep_original = True)
+                                             apache_user, storage_path, self.logger, dry_run, keep_original = True)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -364,6 +365,8 @@ class BaseParser(object):
             host_file = get_path_to_file(vhost_path)
             shutil.copy(host_file, "{0}~previous".format(host_file))
 
+            self.logger.info("Updating configuration in virtual host configuration: %s" % host_file)
+
             errors = []
             if self.dry_run:
                 self.lines.append("\nThe following security directives will be added/modified to your secure virtual host:\n")
@@ -415,8 +418,7 @@ class BaseParser(object):
         except Exception, e:
             self.check_for_parsing_errors()
             raise ParserException(
-                "An error occurred while updating the Virtual Host for {0}.\n{1}".format(self.domain, e),
-                self.directives)
+                "An error occurred while updating the Virtual Host for {0}".format(self.domain), self.directives)
 
         # format the file:
         try:

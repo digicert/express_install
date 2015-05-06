@@ -42,7 +42,7 @@ HOST = 'localhost.digicert.com'
 API_KEY = None
 
 CFG_PATH = '/etc/digicert'
-LOGFILE = 'digicert_express.log'
+LOGFILE = 'digicert_express_config.log'
 LOGGER = ExpressInstallLogger(file_name=LOGFILE).get_logger()
 
 
@@ -100,7 +100,7 @@ def run():
 
     try:
         print ''
-        LOGGER.info('DigiCert Express Install')
+        LOGGER.info('DigiCert Express Install Config')
         print ''
         verify_requirements()
         args.func(args)
@@ -297,7 +297,7 @@ def _configure_apache(host, cert, key, chain, apache_config=None, dry_run=False)
     apache_parser.load_apache_configs(apache_config)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
-    LOGGER.info('Updating Apache configuration...')
+    LOGGER.info('Updating Apache configuration for virtual host %s...' % virtual_host)
     apache_parser.set_certificate_directives(virtual_host)
 
     _enable_ssl_mod()
@@ -327,6 +327,7 @@ def _get_temp_api_key():
 
 
 def download_cert(args):
+    # TODO: remove global api key
     global API_KEY
     API_KEY = args.api_key
 
