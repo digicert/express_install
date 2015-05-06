@@ -298,10 +298,11 @@ def _configure_apache(host, cert, key, chain, apache_config=None, dry_run=False)
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
     # TODO: remove this hack for logging
-    begin_index = virtual_host.find('/etc')
-    end_index = virtual_host.find('/VirtualHost')
-    if begin_index and end_index:
-        log_virtual_host = virtual_host[begin_index:end_index]
+    if virtual_host:
+        begin_index = virtual_host.find('/etc')
+        end_index = virtual_host.find('/VirtualHost')
+        if begin_index and end_index:
+            log_virtual_host = virtual_host[begin_index:end_index]
     else:
         log_virtual_host = '...cannot find virtual host'
     LOGGER.info('Updating Apache configuration for virtual host %s...' % log_virtual_host)
