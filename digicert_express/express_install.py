@@ -37,7 +37,7 @@ DEB_DEPS_32 = ['augeas-lenses', 'augeas-tools:i386', 'libaugeas0:i386', 'openssl
 
 RH_DEPS = ['openssl', 'augeas-libs', 'augeas', 'mod_ssl']
 
-HOST = 'www.digicert.com'
+HOST = 'localhost.digicert.com'
 
 API_KEY = None
 
