@@ -1,5 +1,6 @@
 import augeas
 import os
+import sys
 import shutil
 import re
 import fnmatch
@@ -539,7 +540,6 @@ def format_dry_run(lines):
     :param lines:
     :return:
     """
-    import sys
     format_lines(lines, sys.stdout)
 
 
