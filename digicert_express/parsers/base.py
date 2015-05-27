@@ -5,16 +5,12 @@ import shutil
 import re
 import fnmatch
 import platform
-from loggers.express_install_logger import ExpressInstallLogger
 from collections import OrderedDict
 
-# FIXME check these commands on each platform
-APACHE_SERVICES = {
-    'LinuxMint': 'apache2',
-    'CentOS': 'httpd',
-    'Debian': 'apache2',
-    'Ubuntu': 'apache2ctl'
-}
+import express_utils
+from express_utils import LOGGER
+from express_utils import APACHE_SERVICES
+from express_utils import replace_chars
 
 
 class ParserException(Exception):
@@ -27,12 +23,11 @@ class ParserException(Exception):
 
 
 class BaseParser(object):
-    """docstring for BaseParser"""
+    """ Base parser object.
+    """
 
     def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert',
-                 aug=None, logger=None, dry_run=False):
-        if not logger:
-            logger = ExpressInstallLogger().get_logger()
+                 aug=None, dry_run=False):
 
         self.domain = domain
         self.dry_run = dry_run
@@ -42,6 +37,7 @@ class BaseParser(object):
 
         if domain not in storage_path:
             storage_path = "{0}/{1}".format(storage_path, domain.replace('.', '_'))
+            storage_path = storage_path.replace('*', 'star')
 
         if self.dry_run:
             self.lines = list()
@@ -52,13 +48,12 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
-        # TODO: logger as a class member doesn't need to be passed in
-        cert_path = verify_and_normalize_file(cert_path, "Certificate file", domain.replace(".", "_") + ".crt",
-                                              apache_user, storage_path, logger, dry_run, keep_original = False)
+        cert_path = verify_and_normalize_file(cert_path, "Certificate file", replace_chars(domain) + ".crt",
+                                              apache_user, storage_path, dry_run, keep_original=False)
         chain_path = verify_and_normalize_file(chain_path, "CA Chain file", "DigiCertCA.crt",
-                                               apache_user, storage_path, logger, dry_run, keep_original = False)
-        key_path = verify_and_normalize_file(key_path, "Key file", domain.replace(".", "_") + ".key",
-                                             apache_user, storage_path, logger, dry_run, keep_original = True)
+                                               apache_user, storage_path, dry_run, keep_original=False)
+        key_path = verify_and_normalize_file(key_path, "Key file", replace_chars(domain) + ".key",
+                                             apache_user, storage_path, dry_run, keep_original=True)
 
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
@@ -82,6 +77,7 @@ class BaseParser(object):
                 self.aug.load()
 
                 # get all of the included configuration files and add them to augeas
+                LOGGER.info("Loading apache configuration files...")
                 self._load_included_files(apache_config_file)
                 self.check_for_parsing_errors()
             else:
@@ -93,10 +89,8 @@ class BaseParser(object):
                 "An error occurred while loading your apache configuration.\n{0}".format(e.message),
                 self.directives)
 
-    @staticmethod
-    def _find_apache_config():
-        # FIXME this was stolen from main.py we should consider centralizing express_install.py's determine_platform() function
-        distro = platform.linux_distribution()
+    def _find_apache_config(self):
+        distro = express_utils.determine_platform()
         apache_command = "`which {0}` -V 2>/dev/null".format(APACHE_SERVICES.get(distro[0]))
         apache_config = os.popen(apache_command).read()
         if apache_config:
@@ -108,6 +102,7 @@ class BaseParser(object):
 
             if server_config_file[0] != "/":
                 # get the httpd root to find the server config file path
+                LOGGER.info("Finding Apache configuration files...")
                 httpd_root_dir = apache_config[apache_config.index(httpd_root_check) + len(httpd_root_check): -1]
                 httpd_root_dir = httpd_root_dir[:httpd_root_dir.index("\n")]
                 httpd_root_dir = httpd_root_dir.replace('"', '')
@@ -151,6 +146,7 @@ class BaseParser(object):
                                     self._load_included_files(config_file)
 
     def check_for_parsing_errors(self):
+        LOGGER.info("Verifying Apache configuration files can be parsed...")
         errors = []
         error_files = self.aug.match("/augeas//error")
         for path in error_files:
@@ -194,6 +190,34 @@ class BaseParser(object):
                                       "{0}\n".format(get_path_to_file(vhost))] + self.lines
                     return vhost
 
+    def get_vhosts_on_server(self):
+        """ Use this method to search for all virtual hosts configured on the web server """
+        server_virtual_hosts = []
+        matches = self.aug.match("/augeas/load/Httpd/incl")
+        for match in matches:
+            host_file = "/files{0}".format(self.aug.get(match))
+            if '~previous' not in host_file:
+                vhosts = self.aug.match("{0}/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
+                vhosts += self.aug.match("{0}/*/*[label()=~regexp('{1}/arg')]".format(host_file, create_regex("VirtualHost")))
+
+                vhost = self._get_vhosts_domain_name(vhosts, '443')
+                if not vhost:
+                    vhost = self._get_vhosts_domain_name(vhosts, '80')
+                if vhost:
+                    server_virtual_hosts.extend(vhost)
+        return server_virtual_hosts
+
+    def _get_vhosts_domain_name(self, vhosts, port):
+        found_domains = []
+        for vhost in vhosts:
+            check_matches = self.aug.match("{0}/*[self::directive=~regexp('{1}')]".format(vhost, create_regex("ServerName")))
+            if check_matches:
+                for check in check_matches:
+                    if self.aug.get(check + "/arg"):
+                        aug_domain = self.aug.get(check + "/arg")
+                        found_domains.append(aug_domain)
+        return found_domains
+
     def _get_vhost_path_by_domain_and_port(self, vhosts, port):
         for vhost in vhosts:
             if port in self.aug.get(vhost + "/arg"):
@@ -212,6 +236,7 @@ class BaseParser(object):
                                     return vhost
 
     def _create_secure_vhost(self, vhost):
+        LOGGER.info("Creating new virtual host %s on port 443" % vhost)
         secure_vhost = None
         host_file = "/files{0}".format(get_path_to_file(vhost))
 
@@ -223,7 +248,7 @@ class BaseParser(object):
             terminate_if_module = False
             self.lines.append("The following Virtual Host will be created:\n")
 
-        if platform.linux_distribution()[0] != "CentOS":
+        if express_utils.determine_platform()[0] != "CentOS":
 
             # check if there is an IfModule for mod_ssl.c, if not create it
             if_module = None
@@ -369,11 +394,13 @@ class BaseParser(object):
             errors = []
             if self.dry_run:
                 self.lines.append("\nThe following security directives will be added/modified to your secure virtual host:\n")
+            LOGGER.info("just before directive parsing")
             for directive in self.directives:
                 matches = self.aug.match("{0}/*[self::directive=~regexp('{1}')]".format(vhost_path, create_regex(directive)))
                 if len(matches) > 0:
                     for match in matches:
                         self.aug.set("{0}/arg".format(match), self.directives[directive])
+                        LOGGER.info("Directive %s was updated to %s in %s" % (directive, self.directives[directive], match))
                         if self.dry_run:
                             self.lines.append("{0} {1} #updated value".format(directive, self.directives[directive]))
                 else:
@@ -434,7 +461,7 @@ class BaseParser(object):
             self.aug.load()
 
 
-def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, logger, dry_run=False, keep_original=False):
+def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, dry_run=False, keep_original=False):
 
     """
     Verify that the file exists, move it to a common location, & set the proper permissions
@@ -449,7 +476,7 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     """
 
     if not os.path.isfile(file_path):
-        raise ParserException("{0} '{1}' could not be found on the filesystem".format(desc, file_path))
+        raise ParserException("%s %s could not be found on the filesystem" % (desc, file_path))
 
     if not os.path.exists(storage_path):
         os.mkdir(storage_path)
@@ -462,12 +489,14 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
         if not dry_run:
             if keep_original:
                 shutil.copy(file_path, normalized_cfg_file)
+                LOGGER.info('Copied %s to %s...' % (file_path, normalized_cfg_file))
             else:
                 shutil.move(file_path, normalized_cfg_file)
-            logger.info('Copied %s to %s...' % (file_path, normalized_cfg_file))
+                LOGGER.info('Moved %s to %s...' % (file_path, normalized_cfg_file))
         file_path = normalized_cfg_file
 
     # change the owners of the ssl files
+    LOGGER.info("Updating permissions on %s" % file_path)
     os.system("chown root:{0} {1}".format(apache_user, file_path))
 
     # change the permission of the ssl files, only the root and apache users should have read permissions
@@ -517,6 +546,7 @@ def format_config_file(host_file):
     :param host_file:
     :return:
     """
+    LOGGER.info("Formatting file %s" % host_file)
 
     # get the lines of the config file
     lines = list()

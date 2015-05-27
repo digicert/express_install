@@ -1,4 +1,5 @@
 import os
+
 import express_utils
 
 from express_utils import LOGGER
@@ -6,24 +7,27 @@ from express_utils import CFG_PATH
 from parsers.base import BaseParser
 
 
-def configure_apache(host, cert, key, chain, apache_config=None, dry_run=False):
+def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=None, dry_run=False):
+    """
+    Main method to configure a web server.
+    :param host:  domain name to secure
+    :param cert: path to cert file used to secure the web server
+    :param key: path to key file to secure the web server
+    :param chain: path to certificate chain file for securing the web server
+    :param apache_parser: base parser object
+    :param apache_config: path to apache config file
+    :param dry_run:
+    :return:
+    """
     LOGGER.info('Parsing Apache configuration for virtual hosts...')
-    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, logger=LOGGER, dry_run=dry_run)
-    apache_parser.load_apache_configs(apache_config)
+
+    if not apache_parser:
+        apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+        apache_parser.load_apache_configs(apache_config)
+
     virtual_host = apache_parser.get_vhost_path_by_domain()
 
-    # TODO: remove this hack for logging
-    if virtual_host:
-        begin_index = virtual_host.find('/etc')
-        end_index = virtual_host.find('/VirtualHost')
-        if begin_index and end_index:
-            log_virtual_host = virtual_host[begin_index:end_index]
-            LOGGER.info('found virtual host %s...' % log_virtual_host)
-    else:
-        log_virtual_host = 'cannot find virtual host'
-        LOGGER.info('%s: %s' % (log_virtual_host, host))
-        raise Exception("Virtual Host was not found for {0}.  Please verify that the 'ServerName' directive in "
-                                "your Virtual Host is set to {1} and try again.".format(host, host))
+    log_virtual_host = _log_virtual_host(host, virtual_host)
 
     LOGGER.info('adding certificate directives for host: %s...' % log_virtual_host)
     apache_parser.set_certificate_directives(virtual_host)
@@ -36,8 +40,55 @@ def configure_apache(host, cert, key, chain, apache_config=None, dry_run=False):
         print ''
 
 
-def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, cert=None,
-                    default_search_path=CFG_PATH):
+def prepare_parser(host, cert, key, chain, apache_config=None, dry_run=False):
+    """
+    :param host:
+    :param cert:
+    :param key:
+    :param chain:
+    :param apache_config:
+    :param dry_run:
+    :return:
+    """
+    LOGGER.info('Parsing Apache configuration for virtual hosts...')
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+    apache_parser.load_apache_configs(apache_config)
+    return apache_parser
+
+
+def _log_virtual_host(host, virtual_host):
+    """
+    method used for logging the virtual host to the log file
+    :param host: domain to log
+    :param virtual_host: augeas virtual host path
+    :return:
+    """
+    # TODO: remove this hack for logging
+    if virtual_host:
+        begin_index = virtual_host.find('/etc')
+        end_index = virtual_host.find('/VirtualHost')
+        if begin_index and end_index:
+            log_virtual_host = virtual_host[begin_index:end_index]
+            LOGGER.info('found virtual host %s...' % log_virtual_host)
+    else:
+        log_virtual_host = 'cannot find virtual host'
+        LOGGER.info('%s: %s' % (log_virtual_host, host))
+        raise Exception("Virtual Host was not found for {0}.  Please verify that the 'ServerName' directive in "
+                                "your Virtual Host is set to {1} and try again.".format(host, host))
+    return log_virtual_host
+
+
+def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, cert=None, default_search_path=CFG_PATH):
+    """
+    :param cfg_file_names: list of file names to loop through
+    :param file_type:
+    :param prompt: boolean, set to true and will ask user for a path to the file
+    :param validate_key:
+    :param cert:
+    :param default_search_path:
+    :return:
+    """
+    # TODO: break up this method??
     LOGGER.info("Looking for {0}...".format(file_type))
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
@@ -56,9 +107,8 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
     # Search the filesystem
     for cfg_file_name in names:
         sudo_user_name = os.getenv("SUDO_USER")
-        print sudo_user_name
         sudo_user_home = "%s/%s" % ("/home", sudo_user_name)
-        print sudo_user_home
+
         command = "find {0} -type f -name {1}".format(sudo_user_home, cfg_file_name)
         files = os.popen(command).read().splitlines()
 
@@ -88,7 +138,7 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
                         try:
                             if int(resp) > len(matching_files) or int(resp) < 0:
                                 raise Exception
-                        except Exception as e:
+                        except ValueError as e:
                             resp = None
                             print ""
                             print "ERROR: Invalid number, please try again."
@@ -106,7 +156,10 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
             while not file_path:
                 try:
                     file_path = raw_input(
-                        '%s file could not be found.  Please provide a path to the file: ' % file_type)
+                        '%s file could not be found.  Please provide a path to the file: \n Or q to quit' % file_type)
+                    if file_path:
+                        if file_path.strip().lower() == 'q':
+                            break
                     if os.path.exists(file_path):
                         if validate_key and cert:
                             if not express_utils.validate_key(file_path, cert):
@@ -129,3 +182,51 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
             LOGGER.error('No valid file selected.')
             print ''
         return file_path
+
+
+def compare_match(server_names, certificate_sans):
+    """
+    Compares if the certificate would secure this domain
+    :param server_names: list of ServerName values
+    :param certificate_sans: list of SAN's that would be secured by the certificate
+    :return:
+    """
+    matches = []
+    for server_name in server_names:
+        # exception use case: sn: "www.test.fr"  san: "*.test.de, *.test.fr"
+        for certificate_san in certificate_sans:
+            sans = []
+            if ',' in certificate_san:
+                sans.extend(certificate_san.split(','))
+            else:
+                sans.append(certificate_san)
+
+            # exception use case: sn: "FEDC:ba98:7654:3210:FEDC:BA98:7654:3210"  san: "FEDC:BA98:7654:3210:FEDC:ba98:7654:3210"
+            if ':' in server_name and ':' in certificate_san:
+                if server_name == certificate_san:
+                    matches.append(server_name)
+                else:
+                    continue
+
+            for san in sans:
+                server_name = server_name.strip().lower()
+                san = san.strip().lower()
+
+                server_name_split = server_name.split('.')
+                san_split = san.split('.')
+
+                server_name_level = len(server_name_split)
+                san_level = len(san_split)
+
+                server_name_base = ".".join(server_name_split[-server_name_level+1:])
+                san_base = ".".join(san_split[-san_level+1:])
+
+                if server_name == san:
+                    if server_name not in matches:
+                        matches.append(server_name)
+                if server_name_level == san_level:
+                    if san_split[0] == '*' and (server_name_base == san_base):
+                        if server_name not in matches:
+                            matches.append(server_name)
+
+    return matches

@@ -1,19 +1,12 @@
 #!/usr/bin/env python
 
-import sys
-import re
 from distutils.version import StrictVersion
-import os
 import argparse
-import platform
-import shutil
-from datetime import datetime
 
 import parsers
 import express_utils
 import express_client
 
-from express_utils import APACHE_PROCESS_NAMES
 from express_utils import LOGGER
 from express_utils import CFG_PATH
 
@@ -25,14 +18,14 @@ the CLI and delegates off for core functionality.
 
 
 def run():
-    if os.geteuid() != 0:
-        print 'DigiCert Express Install must be run as root.'
-        exit()
+    # if os.geteuid() != 0:
+    #     print 'DigiCert Express Install must be run as root.'
+    #     exit()
 
     #TODO: review all options and parsers
     parser = argparse.ArgumentParser(description='Express Install. Let DigiCert manage your certificates for you!  '
                                                  'Run the following commands in the order shown below, or choose "all" to do everything in one step.')
-    parser.add_argument('--version', action='version', version='Express Install 1.0.0b7')
+    parser.add_argument('--version', action='version', version='Express Install 1.1.01')
     subparsers = parser.add_subparsers(help='Choose from the command options below:')
 
     dependency_check_parser = subparsers.add_parser('dep_check', help="Check for and install any needed dependencies")
@@ -46,8 +39,7 @@ def run():
                                       help="Skip authentication step with a DigiCert API key")
     download_cert_parser.set_defaults(func=download_cert)
 
-    configure_apache_parser = subparsers.add_parser("configure_apache",
-                                                    help="Update Apache configuration with SSL settings")
+    configure_apache_parser = subparsers.add_parser("configure_apache", help="Update Apache configuration with SSL settings")
     configure_apache_parser.add_argument("--domain", action="store", help="Domain name to secure")
     configure_apache_parser.add_argument("--cert", action="store", help="Absolute path to certificate file")
     configure_apache_parser.add_argument("--key", action="store", help="Absolute path to private key file")
@@ -135,16 +127,15 @@ def configure_apache(args):
             LOGGER.error('No valid private key file located; aborting.')
             return
 
-    parsers.configure_apache(domain, cert, key, chain, args.apache_config, args.dry_run)
+    parsers.configure_apache(domain, cert, key, chain, apache_config=args.apache_config, dry_run=args.dry_run)
 
     if not args.dry_run:
         LOGGER.info('Please restart Apache for your changes to take effect.')
 
 
 def download_cert(args):
-    # TODO: remove global api key
-    global API_KEY
-    API_KEY = args.api_key
+    print args
+    api_key = args.api_key
 
     order_id = args.order_id
     domain = args.domain
@@ -160,13 +151,12 @@ def download_cert(args):
         order_id = order['id']
         domain = order['certificate']['common_name']
 
-    express_client.download_cert(order_id, CFG_PATH, domain)
+    express_client.download_cert(order_id, CFG_PATH, domain, api_key=api_key)
 
 
 def do_everything(args):
-    # TODO: break apart this method
-    global API_KEY
-    API_KEY = args.api_key
+    print args
+    api_key = args.api_key
 
     # check the dependencies
     check_for_deps(args)
@@ -174,79 +164,41 @@ def do_everything(args):
     order_id = args.order_id
     domain = args.domain
     key = args.key
+    create_csr = args.create_csr
+    dry_run = args.dry_run
+    restart_web_server = args.restart_apache
+    verbose = args.verbose
 
+    do_everything_with_args(api_key=api_key, order_id=order_id, domain=domain, key=key, create_csr=create_csr,
+                            dry_run=dry_run, restart_apache=restart_web_server, verbose=verbose)
+
+
+def do_everything_with_args(api_key='', order_id='', domain='', key='', create_csr='', dry_run='', restart_apache='', verbose=''):
     # in some cases (*.domain.com, www.domain.com) the entered domain name could be slightly different
     # than the common name on the certificate, this really only matters when downloading the cert
-    common_name = domain
 
-    if not order_id and not domain:
-        # if we don't have an order_id or domain, then we'll query for all issued certificates
-        LOGGER.info("querying for issued certificates")
-        order = express_client.select_from_orders()
-        order_id = order['id']
-        domain = order.get('certificate', None).get('common_name', None)
-        common_name = domain
+    order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
 
-    if not order_id and domain:
-        LOGGER.info("querying for issued certificates with domain %s" % domain)
-        order = express_client.get_order_by_domain(domain)
-        order_id = order.get('id', '')
-        common_name = order.get('certificate', None).get('common_name', None)
-
-    if order_id:
+    if order_id:  #and not domain:
         # get the order info if the domain was not passed in the args
-        if not domain:
-            LOGGER.info("querying for issued certificates with order_id %s" % order_id)
-            order_info = express_client.get_order_info(order_id)
-            certificate = order_info.get('certificate', None)
-            if certificate:
-                domain = certificate.get('common_name', '')
-                common_name = domain
+        LOGGER.info("Querying for issued certificates with order_id %s" % order_id)
+        order_info = express_client.get_order_info(order_id)
+        api_key = order_info.get('api_key', '')
+        certificate = order_info.get('certificate', None)
+        if certificate:
+            domain = certificate.get('common_name', '')
+            common_name = domain
 
-        create_csr = args.create_csr
         if create_csr:
-            # if the user specified a key or one was found then the csr may have already been generated, if another
-            # is submitted and a new key is generated apache2 may not restart due to a key mismatch
-            # FIXME we need to work out a 're-issue' scenario at some point
-            if not key:
-                key = parsers.locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', prompt=False,
-                                              default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
+            csr_response = express_utils.create_csr(common_name)
+            if csr_response:
+                key = csr_response.get('key')
+                csr = csr_response.get('csr')
 
-            csr = None
-            if key:
-                LOGGER.info("found key %s: " % key)
-                # check the order status, if the status is needs_csr check for the csr file and upload it
-                # TODO: don't make this call again if we already have order_info
-                order_info = express_client.get_order_info(order_id)
-                if order_info.get('status') == "needs_csr":
-                    # if we found a key and the status is 'needs_csr' we expect to find the csr file as well
-                    csr = parsers.locate_cfg_file('%s.csr' % common_name.replace('.', '_'), 'CSR file', prompt=False,
-                                                  default_search_path="{0}/{1}".format(CFG_PATH,
-                                                                                       domain.replace('.', '_')))
-
-                    if not csr:
-                        # back up the existing key
-                        timestamp = datetime.fromtimestamp(int(os.path.getctime(key))).strftime('%Y-%m-%d_%H:%M:%S')
-                        LOGGER.info('backing up key: %s to %s.bak:' % (csr, timestamp))
-                        shutil.copy(key, "{0}.{1}.bak".format(key, timestamp))
-                        create_csr = True
-
-                elif order_info['status'] == "issued":
-                    LOGGER.info(
-                        "It looks like you've already submitted your csr, we'll download and configure your certificates for you")
-                    create_csr = False
-
-            if create_csr:
-                if not csr:
-                    # create the csr and private key
-                    csr_response = express_utils.create_csr(common_name)
-                    key = csr_response.get('key')
-                    csr = csr_response.get('csr')
-
-                # upload the csr
-                if not express_client.upload_csr(order_id, csr):
-                    LOGGER.error("We could not upload your csr file, please try again or contact DigiCert support.")
-                    return
+            # upload the csr
+            if not express_client.upload_csr(order_id, csr, api_key=api_key):
+                LOGGER.error("We could not upload your csr file, please try again or contact DigiCert support.")
+                return
 
         cert = None
         chain = None
@@ -261,7 +213,7 @@ def do_everything(args):
 
         # if we still don't have the cert and chain files, download them
         if not cert or not chain:
-            certs = express_client.download_cert(order_id, CFG_PATH, common_name)
+            certs = express_client.download_cert(order_id, CFG_PATH, common_name, api_key=api_key)
             chain = certs.get('chain', None)
             cert = certs.get('cert', None)
 
@@ -274,12 +226,58 @@ def do_everything(args):
             LOGGER.error('No valid private key file located; aborting.')
             return
 
-        # make the changes to apache
-        parsers.configure_apache(domain, cert, key, chain, dry_run=args.dry_run)
+        if order_info.get('product').get('name_id') == 'ssl_plus':
+            LOGGER.info("Found product SSL PLUS Certificate, making changes")
+            # make the changes to apache
+            parsers.configure_apache(domain, cert, key, chain, dry_run=dry_run)
+        else:
+            # what about www domain and non www.? should www be removed?????
+            # display to the user a prompt showing which domains are covered by their cert that are on the server
+            # product = ssl_wildcard
+            LOGGER.info("Product: %s" % order_info.get('product').get('name_id'))
+            LOGGER.info("Found Non-SSL Plus product, making changes")
 
-        if not args.dry_run:
-            if args.restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
-                express_utils.restart_apache(domain, args.verbose)
+            # get all virtual hosts
+            apache_parser = parsers.prepare_parser(domain, cert, key, chain, dry_run=dry_run)
+            virtual_hosts = apache_parser.get_vhosts_on_server()
+            # virtual_hosts = parsers.prepare_parser(domain, cert, key, chain, dry_run=dry_run)
+
+            # get domains from the order
+            domains = order_info.get('certificate').get('dns_names')
+
+            # find matches from virtuals hosts and domains
+            matched_hosts = parsers.compare_match(virtual_hosts, domains)
+
+            if not matched_hosts:
+                raise Exception("Didn't find any hosts matching SANS on this certificate")
+
+            # prepare menu selection for the user to choose which virtual hosts to configure
+            choices = zip(range(1, len(matched_hosts)+1), matched_hosts)
+            doc_hosts = list()
+            for choice in choices:
+                s = [str(a) for a in choice]
+                doc_hosts.append(". ".join(s))
+            prompt_hosts = "\n".join(doc_hosts)
+            LOGGER.info("The following virtual hosts on this server match the certificate. ")
+            LOGGER.info(prompt_hosts)
+            selected = raw_input("Choose which hosts to configure:\n\n")
+
+            # from user input, determine the domains chosen.
+            selection = selected.split(',')
+            selected_hosts = []
+            for x in selection:
+                for choice in choices:
+                    if int(x) == choice[0]:
+                        LOGGER.info("User selected host: %s" % choice[1])
+                        selected_hosts.append(choice[1])
+
+            # finally, configure apache
+            for s in selected_hosts:
+                parsers.configure_apache(s, cert, key, chain, apache_parser=apache_parser, dry_run=dry_run)
+
+        if not dry_run:
+            if restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
+                express_utils.restart_apache(domain, verbose)
                 LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
             else:
                 LOGGER.info('Restart your Apache server for your changes to take effect.')
@@ -290,6 +288,7 @@ def do_everything(args):
 
 
 def verify_requirements():
+    LOGGER.info("Verifying minimum requirements are met. ")
     os_name, os_version, code_name = express_utils.determine_platform()
     python_version = express_utils.determine_python_version()
     apache_version = express_utils.determine_apache_version(os_name)
@@ -323,10 +322,15 @@ def verify_requirements():
         errors.append("No Apache version detected, please verify that Apache is installed and running")
 
     if len(errors) > 0:
-        error_msg = "ERROR: Your system does not meet the minimum requirements to run this program:"
-        for error in errors:
-            error_msg = "%s\n%s" % (error_msg, error)
-        raise Exception(error_msg)
+        if 'localhost' not in express_utils.HOST:
+            error_msg = "ERROR: Your system does not meet the minimum requirements to run this program:"
+            LOGGER.info(error_msg)
+            LOGGER.info("\n".join(errors))
+            for error in errors:
+                error_msg = "%s\n%s" % (error_msg, error)
+            raise Exception(error_msg)
+    else:
+        LOGGER.info("Minimum requirements are met")
 
 
 def check_for_deps(args):
@@ -334,11 +338,13 @@ def check_for_deps(args):
     if distro[0] == 'CentOS':
         express_utils.check_for_deps_centos(args.verbose)
     else:
-        express_utils.check_for_deps_debian(args.verbose)
+        express_utils.check_for_deps_ubuntu(args.verbose)
 
 
 if __name__ == '__main__':
     try:
-        run()
+        # run()
+        do_everything_with_args(order_id='00687308', domain='nocsr.com', create_csr=True)
+        print 'Finished'
     except KeyboardInterrupt:
         print

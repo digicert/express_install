@@ -6,6 +6,7 @@ from express_utils import HOST
 from digicert_client.api.commands import Command
 from digicert_client import Request
 
+
 class LoginCommand(Command):
     def __init__(self, username, password):
         super(LoginCommand, self).__init__(customer_api_key=None,
@@ -13,7 +14,6 @@ class LoginCommand(Command):
                                            **{'username': username, 'current_password': password})
         # self._headers['Content-Type'] = 'application/json'
         self.set_header('Content-Type', 'application/json')
-
 
     def get_path(self):
         return '/services/v2/user/tempkey'

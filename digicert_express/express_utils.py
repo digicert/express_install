@@ -26,17 +26,23 @@ APACHE_PROCESS_NAMES = {
     'Ubuntu': 'apache2'
 }
 
+APACHE_SERVICES = {
+    'LinuxMint': 'apache2ctl',
+    'CentOS': 'httpd',
+    'Debian': 'apache2ctl',
+    'Ubuntu': 'apache2ctl'
+}
+
 HOST = 'localhost.digicert.com'
 DEBIAN_DEPS = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'openssl', 'python-pip']
 CENTOS_DEPS = ['openssl', 'augeas-libs', 'augeas', 'mod_ssl']
 
+# CFG_PATH = '/etc/digicert'
 CFG_PATH = '/etc/digicert'
 LOGFILE = 'digicert_express_config.log'
 LOGGER = ExpressInstallLogger(file_name=LOGFILE).get_logger()
-API_KEY = None
 
-# TODO: constants for use later
-SUPPORTED_PLATFORMS = ['LinuxMint', 'Ubuntu', 'CentOS', 'Debian', '10.10.3']
+SUPPORTED_PLATFORMS = ['Ubuntu', 'CentOS', 'Debian', '10.10.3']
 
 
 def restart_apache(domain='', verbose=False):
@@ -81,6 +87,7 @@ def validate_key(key, cert):
     key_command = "openssl rsa -noout -modulus -in \"{0}\" | openssl md5".format(key)
     crt_command = "openssl x509 -noout -modulus -in \"{0}\" | openssl md5".format(cert)
 
+    # TODO: is this the best way to call to the CLI
     key_modulus = os.popen(key_command).read()
     crt_modulus = os.popen(crt_command).read()
 
@@ -93,10 +100,10 @@ def copy_cert(cert_path, apache_path):
 
 def enable_ssl_mod():
     LOGGER.info('Enabling Apache SSL module...')
-    if determine_platform()[0] != 'CentOS' and not is_ssl_mod_enabled('/usr/sbin/apachectl'):
+    if determine_platform()[0] != 'CentOS' and not is_ssl_mod_enabled('apache2ctl'):
         try:
-            subprocess.check_call(["sudo", '/usr/sbin/a2enmod', 'ssl'], stdout=open("/dev/null", 'w'),
-                                  stderr=open("/dev/null", 'w'))
+            subprocess.check_call(["sudo", 'a2enmod', 'ssl'], stdout=open("/dev/null", 'w'),
+                                  stderr=open("/dev/null", 'w'), shell=True)
         except (OSError, subprocess.CalledProcessError) as err:
             raise Exception(
                 "There was a problem enabling mod_ssl.  Run 'sudo a2enmod ssl' to enable it or check the apache log for more information")
@@ -126,9 +133,11 @@ def determine_python_version():
 
 
 def determine_apache_version(os_name):
+    # TODO: is this the best way to call to the CLI
     apache = os.popen("`which %s` -v | grep version" % APACHE_PROCESS_NAMES.get(os_name)).read()
     version_matches = re.findall(r"([0-9.]*[0-9]+)", apache)
     if version_matches:
+        LOGGER.info("Found Apache version %s: " % "".join(version_matches))
         return version_matches[0]
     else:
         return ''
@@ -139,12 +148,14 @@ def determine_versions():
     python_version = determine_python_version()
     apache_version = determine_apache_version(os_name)
 
-    return {'os_name': os_name, 'os_version': os_version, 'code_name': code_name, 'python_version': python_version, 'apache_version': apache_version}
+    return {'os_name': os_name, 'os_version': os_version, 'code_name': code_name,
+            'python_version': python_version, 'apache_version': apache_version}
 
 
 def check_for_apache_process(platform_name):
     try:
         process_name = APACHE_PROCESS_NAMES.get(platform_name)
+        # TODO: is this the best way to call to the CLI
         process = os.popen("ps aux | grep %s" % process_name).read().splitlines()
         if len(process) > 2:
             return True
@@ -172,6 +183,7 @@ def check_for_site_availability(domain):
 def check_for_site_openssl(domain):
     LOGGER.info("Validating the SSL configuration for {0}...".format(domain))
     try:
+        # TODO: is this the best way to call to the CLI
         process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
         site_status = False
         if isinstance(process, basestring):
@@ -189,38 +201,52 @@ def check_for_site_openssl(domain):
     return False
 
 
-def check_for_deps_debian(verbose=False):
+def check_for_deps_ubuntu(verbose=False, install_prompt=True):
     # check to see which of the deps are installed
     try:
+        LOGGER.info("Checking for installed Ubuntu dependencies")
         import apt
 
         a = apt.cache.Cache(memonly=True)
 
+        newly_installed = []
         for d in DEBIAN_DEPS:
             if a[d].is_installed:
                 continue
             else:
-                if raw_input('Install: %s (Y/n) ' % a[d].name).lower().strip() == 'n':
-                    LOGGER.info("Please install %s package yourself: " % a[d].name)
-                    raw_input("Press enter to continue: ")
-                else:
-                    LOGGER.info("Installing %s..." % a[d].name)
-                    if verbose:
-                        a[d].mark_install()
+                if install_prompt:
+                    if raw_input('Install: %s (Y/n) ' % a[d].name).lower().strip() == 'n':
+                        LOGGER.info("Please install %s package yourself: " % a[d].name)
+                        raw_input("Press enter to continue: ")
                     else:
-                        os.system('apt-get -y install %s &>> %s' % (a[d].name, LOGFILE))
+                        LOGGER.info("Installing %s..." % a[d].name)
+                        if verbose:
+                            a[d].mark_install()
+                        else:
+                            # TODO: is this the best way to call to the CLI
+                            os.system('apt-get -y install %s &>> %s' % (a[d].name, LOGFILE))
+                newly_installed.append(d)
         if verbose:
             a.commit()
+        if not newly_installed:
+            LOGGER.info("All package dependencies are installed")
+        return newly_installed
     except ImportError:
         pass
 
 
 def check_for_deps_centos(verbose=False):
+    """
+    :param verbose: 
+    :return:
+    """
     try:
+        LOGGER.info("Checking for installed CentOS dependencies")
         import yum
 
         yb = yum.YumBase()
         packages = yb.rpmdb.returnPackages()
+        newly_installed = []
         for package_name in CENTOS_DEPS:
             if package_name in [x.name for x in packages]:
                 continue
@@ -230,15 +256,30 @@ def check_for_deps_centos(verbose=False):
                     raw_input("Press enter to continue: ")
                 else:
                     LOGGER.info("Installing %s..." % package_name)
+                    newly_installed.append(package_name)
                     if verbose:
                         yb.install(name=package_name)
                     else:
+                        # TODO: is this the best way to call to the CLI
                         os.system('yum -y install %s &>> %s' % (package_name, LOGFILE))
+        if not newly_installed:
+            LOGGER.info("All package dependencies are installed")
+        return newly_installed
     except ImportError:
         pass
 
 
 def create_csr(server_name, org="", city="", state="", country="", key_size=2048):
+    """
+    Uses this data to create a CSR via OpenSSL
+    :param server_name:
+    :param org:
+    :param city:
+    :param state:
+    :param country:
+    :param key_size:
+    :return:
+    """
     LOGGER.info("Creating CSR file for {0}...".format(server_name))
     # remove http:// and https:// from server_name
     server_name = server_name.replace("http://", "")
@@ -257,6 +298,7 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
               '-subj "{3}" 2>/dev/null'.format(key_size, csr_file_name, key_file_name, subj_string)
 
     # run the command
+    # TODO: is this the best way to call to the CLI
     os.system(csr_cmd)
 
     # verify the existence of the key and csr files
@@ -268,3 +310,14 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
     LOGGER.info("Created CSR file {0}...".format(csr_file_name))
     print ""
     return {"key": key_file_name, "csr": csr_file_name}
+
+
+def replace_chars(word, replace_char='.', new_char='_'):
+    """
+    :param word: word to replace chars
+    :param replace_char: what to replace
+    :param new_char: what to replace with
+    :return: newly replaced word
+    """
+    temp_word = word.replace(replace_char, new_char)
+    return temp_word.replace('*', 'star')
