@@ -3,8 +3,6 @@ __author__ = 'jfischer'
 import unittest
 import augeas
 import parsers
-from parsers.base import BaseParser
-from parsers.base import create_regex
 
 TEST_ROOT = "/tmp/testroot"
 
@@ -54,35 +52,6 @@ class TestExpressUtils(unittest.TestCase):
         print "%d domains didn't match" % count
         self.assertEqual(count, 15)
 
-    def test_configure_apache(self):
-        host = 'testdomain1.com'
-        cert = '/home/jfischer/certsdownload/testdomain1_com/testdomain1_com.crt'
-        key = '/home/jfischer/certsdownload/testdomain1_com/key.key'
-        chain = '/home/jfischer/certsdownload/testdomain1_com/DigiCertCA.crt'
-        apache_config = '/home/jfischer/dev/testroot/etc/apache2/sites-available/111-ssl.conf'
-        parsers.configure_apache(host, cert, key, chain)
-
-    def test_get_vhost(self):
-        my_flags = augeas.Augeas.NONE | augeas.Augeas.NO_MODL_AUTOLOAD
-        # aug = augeas.Augeas(flags=my_flags, root='/home/jfischer/dev/testroot') # OJO
-        aug = augeas.Augeas(flags=my_flags) # OJO
-        host = 'testdomain1.com'
-        cert = '/home/jfischer/certsdownload/testdomain1_com/testdomain1_com.crt'
-        key = '/home/jfischer/certsdownload/testdomain1_com/key.key'
-        chain = '/home/jfischer/certsdownload/testdomain1_com/DigiCertCA.crt'
-        apache_parser = BaseParser(host, cert, key, chain, '/home/jfischer/dev/testroot', aug=aug) # OJO
-        apache_parser.load_apache_configs()
-        virtual_host = apache_parser.get_vhost_path_by_domain()
-        # apache_parser._get_vhost_path_by_domain_and_port(['vhosts'], '80')
-        # matches = aug.match("/augeas/load/Httpd/incl")
-        # vhosts = []
-        # for match in matches:
-        #     host_file = "/files{0}".format(aug.get(match))
-        #     vhosts = aug.match("{0}/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
-        #     vhosts += aug.match("{0}/*/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
-        print virtual_host
-        virtual_hosts = apache_parser.get_vhosts_on_server()
-        print virtual_hosts
 
 if __name__ == '__main__':
     unittest.main()
