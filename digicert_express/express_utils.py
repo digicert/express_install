@@ -298,7 +298,6 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
               '-subj "{3}" 2>/dev/null'.format(key_size, csr_file_name, key_file_name, subj_string)
 
     # run the command
-    # TODO: is this the best way to call to the CLI
     os.system(csr_cmd)
 
     # verify the existence of the key and csr files
@@ -309,7 +308,7 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
     LOGGER.info("Created private key file {0}...".format(key_file_name))
     LOGGER.info("Created CSR file {0}...".format(csr_file_name))
     print ""
-    return {"key": key_file_name, "csr": csr_file_name}
+    return key_file_name, csr_file_name
 
 
 def replace_chars(word, replace_char='.', new_char='_'):

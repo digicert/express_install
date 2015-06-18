@@ -234,3 +234,30 @@ def select_from_orders():
         return orders[selection]
     else:
         raise Exception("No orders found; aborting.")
+
+
+def list_duplicates(order_id, api_key=''):
+    if not api_key:
+        api_key = get_temp_api_key()
+
+    if api_key:
+        order_client = CertificateOrder(HOST, customer_api_key=api_key)
+        return order_client.list_duplicates(order_id)
+
+
+def get_duplicate(order_id, sub_id, api_key=''):
+    if not api_key:
+        api_key = get_temp_api_key()
+
+    if api_key:
+        order_client = CertificateOrder(HOST, customer_api_key=api_key)
+        return order_client.download_duplicate(digicert_order_id=order_id, sub_id=sub_id)
+
+
+def create_duplicate(order_id, api_key='', *kwargs):
+    if not api_key:
+        api_key = get_temp_api_key()
+
+    if api_key:
+        order_client = CertificateOrder(HOST, customer_api_key=api_key)
+        return order_client.create_duplicate('00687308', *kwargs)

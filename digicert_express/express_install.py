@@ -180,7 +180,7 @@ def do_everything_with_args(api_key='', order_id='', domain='', key='', create_c
     order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
 
     if order_id:  #and not domain:
-        # get the order info if the domain was not passed in the args
+        # 1.  get the order info for order_id, domain and common_name
         LOGGER.info("Querying for issued certificates with order_id %s" % order_id)
         order_info = express_client.get_order_info(order_id)
         api_key = order_info.get('api_key', '')
@@ -189,20 +189,17 @@ def do_everything_with_args(api_key='', order_id='', domain='', key='', create_c
             domain = certificate.get('common_name', '')
             common_name = domain
 
+        # 2.  check status if issued, if not, then create and upload csr OJO, change the create_csr flag, not necessary now
         if create_csr:
-            csr_response = express_utils.create_csr(common_name)
-            if csr_response:
-                key = csr_response.get('key')
-                csr = csr_response.get('csr')
+            key, csr = express_utils.create_csr(common_name)
 
             # upload the csr
             if not express_client.upload_csr(order_id, csr, api_key=api_key):
                 LOGGER.error("We could not upload your csr file, please try again or contact DigiCert support.")
                 return
 
-        cert = None
-        chain = None
-        if not create_csr:
+        # 3.  do I have the private key? find it on path or prompt, if I have it, then install it, if not ask for duplicate
+        if not order_info.get('csr') and order_info.get('status') == 'pending':
             # if we didn't create the csr for them previously, their chain and cert could be on the filesystem
             # attempt to locate the cert and chain files
             # FIXME should we prompt the user to input the path to their files at this point?
@@ -227,29 +224,46 @@ def do_everything_with_args(api_key='', order_id='', domain='', key='', create_c
             return
 
         if order_info.get('product').get('name_id') == 'ssl_plus':
-            LOGGER.info("Found product SSL PLUS Certificate, making changes")
+            LOGGER.info("Found product SSL PLUS Certificate")
             # make the changes to apache
             parsers.configure_apache(domain, cert, key, chain, dry_run=dry_run)
         else:
-            # what about www domain and non www.? should www be removed?????
-            # display to the user a prompt showing which domains are covered by their cert that are on the server
-            # product = ssl_wildcard
-            LOGGER.info("Product: %s" % order_info.get('product').get('name_id'))
-            LOGGER.info("Found Non-SSL Plus product, making changes")
+            LOGGER.info("Found product: %s" % order_info.get('product').get('name_id'))
+
+            # get domains from the order
+            domains = order_info.get('certificate').get('dns_names')
+
+            # prompt for duplicate here
+            if not key:
+                LOGGER.info('Do you want a duplicate certificate')
+                response = raw_input("Are you downloading a Wildcard, UC or multi-domain cert for an additional server and need to create a duplicate.  'y/n/q'")
+                # TODO: make this more robust to handle mis-types
+                if response.lower().strip() == 'y':
+                    # [0], [1], [2] cert, int, chain
+                    private_key_file, csr_file = express_utils.create_csr(domain, org=order_info.get('organization').get('name'), city=order_info.get('city'), state=order_info.get('state'), country=order_info.get('country'))
+
+                    private_key = open(private_key_file, 'r')
+                    duplicate_cert_data = {"certificate": {"common_name": domain, "csr": private_key.read(), "signature_hash": "sha256", "server_platform": {2}, "dns_names": domains}}
+
+                    result = express_client.create_duplicate(order_id, api_key=api_key, **duplicate_cert_data)
+                    duplicate_cert = express_client.get_duplicate(order_id, result.get('id'), api_key=api_key)
+                    cert = duplicate_cert[0]
+                    chain = duplicate_cert[2]
+                else:
+                    LOGGER.info("I'm not sure what you want to do.")
+                    LOGGER.info("Exiting")
+                    return
+
 
             # get all virtual hosts
             apache_parser = parsers.prepare_parser(domain, cert, key, chain, dry_run=dry_run)
             virtual_hosts = apache_parser.get_vhosts_on_server()
-            # virtual_hosts = parsers.prepare_parser(domain, cert, key, chain, dry_run=dry_run)
-
-            # get domains from the order
-            domains = order_info.get('certificate').get('dns_names')
 
             # find matches from virtuals hosts and domains
             matched_hosts = parsers.compare_match(virtual_hosts, domains)
 
             if not matched_hosts:
-                raise Exception("Didn't find any hosts matching SANS on this certificate")
+                raise Exception("Didn't find any hosts matching the domains for this certificate")
 
             # prepare menu selection for the user to choose which virtual hosts to configure
             choices = zip(range(1, len(matched_hosts)+1), matched_hosts)
@@ -344,7 +358,8 @@ def check_for_deps(args):
 if __name__ == '__main__':
     try:
         # run()
-        do_everything_with_args(order_id='00687308', domain='nocsr.com', create_csr=True)
+        # do_everything_with_args(order_id='00687308', domain='nocsr.com', create_csr=True)
+        print express_client.get_order_info('00687308', 'CAGD2DGET574D2GVAZEXF57GIOYPTLU5E76EZBW4FI6F7J2PALXSFWMKOIL4RWOMPLS4VZTTQWK32RDY7')
         print 'Finished'
     except KeyboardInterrupt:
         print
