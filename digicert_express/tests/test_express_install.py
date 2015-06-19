@@ -2,6 +2,8 @@ __author__ = 'jfischer'
 
 import unittest
 import express_install
+from cqrs import LoginCommand
+from cqrs import Request
 
 
 class TestExpressClient(unittest.TestCase):
@@ -48,6 +50,21 @@ class TestExpressClient(unittest.TestCase):
             strings.append(". ".join(s))
         doc = "\n".join(strings)
         print doc
+
+    def test_get_temp_key(self):
+        username = ''
+        password = ''
+        HOST = ''
+        result = Request(action=LoginCommand(username, password), host=HOST).send()
+        if result['http_status'] >= 300:
+            raise Exception('Login failed:  %d - %s' % (result['http_status'], result['http_reason']))
+
+        try:
+            api_key = result['api_key']
+            print api_key
+        except KeyError:
+            api_key = None
+        return
 
 
 if __name__ == '__main__':

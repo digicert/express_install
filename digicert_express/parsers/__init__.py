@@ -137,7 +137,7 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
                         # int value makes sense
                         try:
                             if int(resp) > len(matching_files) or int(resp) < 0:
-                                raise Exception
+                                raise ValueError
                         except ValueError as e:
                             resp = None
                             print ""
@@ -156,7 +156,7 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
             while not file_path:
                 try:
                     file_path = raw_input(
-                        '%s file could not be found.  Please provide a path to the file: \n Or q to quit' % file_type)
+                        '%s file could not be found.  Please provide a path to the file: \n Or q if you do not have a private key' % file_type)
                     if file_path:
                         if file_path.strip().lower() == 'q':
                             break
