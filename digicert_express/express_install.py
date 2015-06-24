@@ -154,30 +154,26 @@ def download_cert(args):
 
 def do_everything(args):
     print args
-    api_key = args.api_key
 
     # check the dependencies
     check_for_deps(args)
 
     order_id = args.order_id
     domain = args.domain
-    key = args.key
-    create_csr = args.create_csr
-    dry_run = args.dry_run
     restart_web_server = args.restart_apache
-    verbose = args.verbose
 
-    do_everything_with_args(api_key=api_key, order_id=order_id, domain=domain, key=key, create_csr=create_csr,
-                            dry_run=dry_run, restart_apache=restart_web_server, verbose=verbose)
+    do_everything_with_args(order_id=order_id, domain=domain, restart_apache=restart_web_server)
 
 
 def do_everything_with_args(order_id='', domain='', restart_apache=''):
+    LOGGER.info("Looking up order info")
     order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
 
     if order_id:  #and not domain:
         # 1.  get the order info for order_id, domain and common_name
         LOGGER.info("Querying for issued certificates with order_id %s" % order_id)
-        # look for key, chain and csr, # match them up, then install it
+
+        # 2.  look for key, chain and csr
         cert = parsers.locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate', prompt=False,
                                            default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
         chain = parsers.locate_cfg_file(['DigiCertCA.crt'], 'Certificate chain', prompt=False,
@@ -187,12 +183,16 @@ def do_everything_with_args(order_id='', domain='', restart_apache=''):
                                           default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
 
         if cert and chain and key:
+            LOGGER.info("Found cert, chain and key")
+            LOGGER.info("Installing cert for domain: %s" % domain)
             parsers.configure_apache(domain, cert, key, chain)
 
         if not cert and not chain and not key:
+            LOGGER.info("Did not find cert, chain and key, proceeding...")
             _process(domain, order_id, failed_pk_check=False)
 
         if cert and chain and not key:
+            LOGGER.info("Found cert and chain but not key, proceeding...")
             _process(domain, order_id, failed_pk_check=True)
 
         if restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
@@ -261,14 +261,18 @@ def check_for_deps(args):
 
 
 def _process(domain, order_id, failed_pk_check=False):
+    LOGGER.info("In _process()")
     order_info = express_client.get_order_info(order_id)
-    api_key = order_info.get('api_key', '')
+    api_key = order_info.get('api_key')
     if order_info.get('status') != 'issued':
+        LOGGER("order: %s is not issued.  status: %s" % (order_id, order_info.get('status')))
         if not order_info.get('certificate').get('csr'):
+            LOGGER.info("order does not have CSR.  Let's create one...")
             private_key_file, csr_file = express_utils.create_csr(domain)
             express_client.upload_csr(order_id, csr_file)
             order_info = express_client.get_order_info(order_id)
             if order_info.get('status') == 'issued':
+                LOGGER.info("order is issued now.  Let's install the cert and configure the web server.")
                 _download_and_install_cert(order_id, domain, api_key=api_key, create_csr=True)
                 return
             # TODO: we may need to add better handling for csr if it exists
@@ -276,6 +280,8 @@ def _process(domain, order_id, failed_pk_check=False):
     else:
         if order_info.get('allow_duplicates'):
             response = raw_input("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  'y/n/q'")
+            LOGGER.info("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  'y/n/q'")
+            LOGGER.info("Duplicate Response: %s" % response)
             if response.lower().strip() == 'y': # TODO: make this more robust
                 _download_and_install_duplicate_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_csr=True)
             else:
@@ -291,6 +297,7 @@ def _process(domain, order_id, failed_pk_check=False):
 
 
 def _download_and_install_cert(order_id, domain, api_key='', create_csr=False):
+    LOGGER.info("In download and install cert")
     if create_csr:
         private_key_file, csr_file = express_utils.create_csr(domain)
         express_client.upload_csr(order_id, csr_file, api_key) # TODO: maybe catch result to see if successful
@@ -305,10 +312,13 @@ def _download_and_install_cert(order_id, domain, api_key='', create_csr=False):
 
     if not key:
         raise Exception('Could not find private key')
+
+    LOGGER.info("Installing cert for domain: %s" % domain)
     parsers.configure_apache(domain, cert, key, chain)
 
 
 def _download_and_install_duplicate_cert(order_id, common_name, domains, api_key=''):
+    LOGGER.info("In download and install duplicate cert")
     private_key_file, csr_file = express_utils.create_csr(common_name)
 
     private_key = open(private_key_file, 'r')
@@ -326,6 +336,7 @@ def _download_and_install_duplicate_cert(order_id, common_name, domains, api_key
 
     # find matches from virtuals hosts and domains
     matched_hosts = parsers.compare_match(virtual_hosts, domains)
+    LOGGER.info("Found matching host: %s" % "\n".join(matched_hosts))
 
     if not matched_hosts:
         raise Exception("Didn't find any hosts matching the domains for this certificate")
@@ -352,41 +363,16 @@ def _download_and_install_duplicate_cert(order_id, common_name, domains, api_key
 
     # finally, configure apache
     for s in selected_hosts:
+        LOGGER.info("Installing cert for domain: %s" % s)
         parsers.configure_apache(s, cert, key, chain, apache_parser=apache_parser)
 
     return
 
 
-    # get order info
-    # if not issued:
-        # create csr and private key
-        # upload csr
-        # download cert
-    # else:
-        # if allow_duplicates:
-            # prompt to create duplicates or not?
-            # if yes:
-                # create csr and private key
-                # upload csr
-                # download cert
-                # install cert
-            # if no to create duplicates:
-                # if not failed_pk_check:
-                    # download cert
-                    # install cert
-        # else: not allow duplicates
-            # if not failed_pk_check:
-                # download cert
-                # install cert
-
-
-
 if __name__ == '__main__':
     try:
-        # run()
+        run()
         # do_everything_with_args(order_id='00687308', domain='nocsr.com', create_csr=True)
-        order_info = express_client.get_order_info('00687308')
-        print order_info
         print 'Finished'
     except KeyboardInterrupt:
         print

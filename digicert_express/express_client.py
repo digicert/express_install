@@ -21,14 +21,14 @@ def get_order_and_domain_info(order_id, domain):
     common_name = domain
     if not order_id and not domain:
         # if we don't have an order_id or domain, then we'll query for all issued certificates
-        LOGGER.info("querying %s for issued certificates" % HOST)
+        LOGGER.info("no order_id or domain, so let's query %s for issued certificates in the account" % HOST)
         order = select_from_orders()
         order_id = order['id']
         domain = order.get('certificate', None).get('common_name', None)
         common_name = domain
 
     if not order_id and domain:
-        LOGGER.info("querying %s for issued certificates with domain %s" % (HOST, domain))
+        LOGGER.info("querying %s for issued certificates for domain %s" % (HOST, domain))
         order = get_order_by_domain(domain)
         order_id = order.get('id', '')
         common_name = order.get('certificate', None).get('common_name', None)
@@ -37,7 +37,7 @@ def get_order_and_domain_info(order_id, domain):
 
 
 def download_cert(order_id, file_path=None, domain=None, api_key=''):
-    msg_downloading = 'Downloading certificate files for'
+    msg_downloading = 'Downloading certificate files for: '
     msg_from_dc = 'from %s' % HOST
     if domain:
         LOGGER.info('%s domain "%s" %s (Order ID: %s)...' % (msg_downloading, domain, msg_from_dc, order_id))
@@ -260,4 +260,4 @@ def create_duplicate(order_id, api_key='', *kwargs):
 
     if api_key:
         order_client = CertificateOrder(HOST, customer_api_key=api_key)
-        return order_client.create_duplicate('00687308', *kwargs)
+        return order_client.create_duplicate(order_id, *kwargs)

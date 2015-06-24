@@ -37,7 +37,6 @@ HOST = 'localhost.digicert.com'
 DEBIAN_DEPS = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'openssl', 'python-pip']
 CENTOS_DEPS = ['openssl', 'augeas-libs', 'augeas', 'mod_ssl']
 
-# CFG_PATH = '/etc/digicert'
 CFG_PATH = '/etc/digicert'
 LOGFILE = 'digicert_express_config.log'
 LOGGER = ExpressInstallLogger(file_name=LOGFILE).get_logger()
@@ -155,7 +154,6 @@ def determine_versions():
 def check_for_apache_process(platform_name):
     try:
         process_name = APACHE_PROCESS_NAMES.get(platform_name)
-        # TODO: is this the best way to call to the CLI
         process = os.popen("ps aux | grep %s" % process_name).read().splitlines()
         if len(process) > 2:
             return True
@@ -183,7 +181,6 @@ def check_for_site_availability(domain):
 def check_for_site_openssl(domain):
     LOGGER.info("Validating the SSL configuration for {0}...".format(domain))
     try:
-        # TODO: is this the best way to call to the CLI
         process = os.popen("timeout 3 openssl s_client -connect %s:443 2>&1" % domain).read().splitlines()
         site_status = False
         if isinstance(process, basestring):
