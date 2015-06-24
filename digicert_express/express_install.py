@@ -265,11 +265,11 @@ def _process(domain, order_id, failed_pk_check=False):
     order_info = express_client.get_order_info(order_id)
     api_key = order_info.get('api_key')
     if order_info.get('status') != 'issued':
-        LOGGER("order: %s is not issued.  status: %s" % (order_id, order_info.get('status')))
-        if not order_info.get('certificate').get('csr'):
+        LOGGER.info("order: %s is not issued.  status: %s" % (order_id, order_info.get('status')))
+        if not order_info.get('certificate'):
             LOGGER.info("order does not have CSR.  Let's create one...")
             private_key_file, csr_file = express_utils.create_csr(domain)
-            express_client.upload_csr(order_id, csr_file)
+            express_client.upload_csr(order_id, csr_file, api_key=api_key)
             order_info = express_client.get_order_info(order_id)
             if order_info.get('status') == 'issued':
                 LOGGER.info("order is issued now.  Let's install the cert and configure the web server.")

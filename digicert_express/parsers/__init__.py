@@ -156,10 +156,10 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
             while not file_path:
                 try:
                     file_path = raw_input(
-                        '%s file could not be found.  Please provide a path to the file: \n Or q if you do not have a private key' % file_type)
+                        '%s file could not be found.  Please provide a path to the file: \n Or "q" if you do not have a private key: ' % file_type)
                     if file_path:
                         if file_path.strip().lower() == 'q':
-                            break
+                            return ''
                     if os.path.exists(file_path):
                         if validate_key and cert:
                             if not express_utils.validate_key(file_path, cert):
