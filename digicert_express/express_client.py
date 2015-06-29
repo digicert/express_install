@@ -245,7 +245,7 @@ def list_duplicates(order_id, api_key=''):
         return order_client.list_duplicates(order_id)
 
 
-def get_duplicate(order_id, sub_id, api_key=''):
+def get_duplicate(order_id, sub_id, file_path, domain, api_key=''):
     LOGGER.info("In get_duplicate()")
     LOGGER.info("order id: %s sub id: %s" % (order_id, sub_id))
     if not api_key:
@@ -253,7 +253,23 @@ def get_duplicate(order_id, sub_id, api_key=''):
 
     if api_key:
         order_client = CertificateOrder(HOST, customer_api_key=api_key)
-        return order_client.download_duplicate(digicert_order_id=order_id, sub_id=sub_id)
+        duplicate_data = order_client.download_duplicate(digicert_order_id=order_id, sub_id=sub_id)
+        cert_file_path = os.path.join(file_path, '{0}.crt'.format(domain.replace(".", "_")))
+        chain_file_path = os.path.join(file_path, '{0}.pem'.format(domain.replace(".", "_")))
+
+        # download the certificate
+        cert = duplicate_data[0]
+        cert_file = open(cert_file_path, 'w')
+        cert_file.write(cert)
+        cert_file.close()
+
+        # download the intermediate certificate
+        chain = duplicate_data[2]
+        chain_file = open(chain_file_path, 'w')
+        chain_file.write(chain)
+        chain_file.close()
+
+        return {"cert": cert_file_path, "chain": chain_file_path}
 
 
 def create_duplicate(order_id, cert_data, api_key=''):

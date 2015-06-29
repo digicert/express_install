@@ -7,7 +7,7 @@ from express_utils import CFG_PATH
 from parsers.base import BaseParser
 
 
-def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=None, dry_run=False):
+def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=None, dry_run=False, is_multidomain=False):
     """
     Main method to configure a web server.
     :param host:  domain name to secure
@@ -20,10 +20,11 @@ def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=N
     :return:
     """
     LOGGER.info('In configure apache, parsing Apache configuration for virtual hosts...')
+    LOGGER.info("host: {0}, cert: {1}, key: {2}, chain: {3}".format(host, cert, key, chain))
 
     if not apache_parser:
         LOGGER.info("not apache parser")
-        apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+        apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run, is_multidomain=is_multidomain)
         LOGGER.info("calling load apache configs()")
         apache_parser.load_apache_configs(apache_config)
 
@@ -52,6 +53,7 @@ def prepare_parser(host, cert, key, chain, apache_config=None, dry_run=False):
     :param dry_run:
     :return:
     """
+    LOGGER.info("host: {0}, cert: {1}, key: {2}, chain: {3}".format(host, cert, key, chain))
     LOGGER.info('Parsing Apache configuration for virtual hosts...')
     apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
     apache_parser.load_apache_configs(apache_config)

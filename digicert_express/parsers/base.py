@@ -27,7 +27,7 @@ class BaseParser(object):
     """
 
     def __init__(self, domain, cert_path, key_path, chain_path, storage_path='/etc/digicert',
-                 aug=None, dry_run=False):
+                 aug=None, dry_run=False, is_multidomain=False):
 
         self.domain = domain
         self.dry_run = dry_run
@@ -36,10 +36,19 @@ class BaseParser(object):
         if not domain:
             raise ParserException("You need to specify a domain name to secure")
 
-        if domain not in storage_path:
+        cert_name = replace_chars(domain) + ".crt"
+        pk_name = replace_chars(domain) + ".key"
+
+        if is_multidomain and 'star' in cert_path:
+            storage_path = os.path.dirname(cert_path)
+            cert_name = os.path.basename(cert_path)
+            pk_name = os.path.basename(key_path)
+        elif domain not in storage_path:
             LOGGER.info("domain not in storage path")
             storage_path = "{0}/{1}".format(storage_path, domain.replace('.', '_'))
             storage_path = storage_path.replace('*', 'star')
+
+        LOGGER.info("*** BASE PARSER DETERMINED STORAGE AT {0} ***".format(storage_path))
 
         if self.dry_run:
             self.lines = list()
@@ -51,12 +60,16 @@ class BaseParser(object):
 
         # verify that the files exist and are readable by the user
         LOGGER.info("verify and normalize paths")
-        cert_path = verify_and_normalize_file(cert_path, "Certificate file", replace_chars(domain) + ".crt",
+        cert_path = verify_and_normalize_file(cert_path, "Certificate file", cert_name,
                                               apache_user, storage_path, dry_run, keep_original=False)
         chain_path = verify_and_normalize_file(chain_path, "CA Chain file", "DigiCertCA.crt",
                                                apache_user, storage_path, dry_run, keep_original=False)
-        key_path = verify_and_normalize_file(key_path, "Key file", replace_chars(domain) + ".key",
+        key_path = verify_and_normalize_file(key_path, "Key file", pk_name,
                                              apache_user, storage_path, dry_run, keep_original=True)
+
+        self.cert_path = cert_path
+        self.chain_path = chain_path
+        self.key_path = key_path
 
         LOGGER.info("self directives")
         self.directives = OrderedDict()
@@ -72,13 +85,12 @@ class BaseParser(object):
             aug = augeas.Augeas(flags=my_flags)
             LOGGER.info("finished instantiating aug")
         self.aug = aug
-        LOGGER.info("after setting self.aug")
+        LOGGER.info("after setting self.aug {0}".format(self.aug))
 
     def load_apache_configs(self, apache_config_file=None):
         try:
             if not apache_config_file:
                 apache_config_file = self._find_apache_config()
-
             self.aug.set("/augeas/load/Httpd/lens", "Httpd.lns")
             if apache_config_file:
                 self.aug.set("/augeas/load/Httpd/incl", apache_config_file)
@@ -92,6 +104,7 @@ class BaseParser(object):
                 raise Exception("We could not find your main apache configuration file.  Please ensure that apache is "
                                 "running or include the path to your virtual host file in your command line arguments")
         except Exception, e:
+            raise e
             self.check_for_parsing_errors()
             raise ParserException(
                 "An error occurred while loading your apache configuration.\n{0}".format(e.message),
@@ -100,11 +113,13 @@ class BaseParser(object):
     def _find_apache_config(self):
         distro = express_utils.determine_platform()
         apache_command = "`which {0}` -V 2>/dev/null".format(APACHE_SERVICES.get(distro[0]))
+        print apache_command
         apache_config = os.popen(apache_command).read()
         if apache_config:
             server_config_check = "SERVER_CONFIG_FILE="
             httpd_root_check = "HTTPD_ROOT="
-
+            print "*************"
+            print apache_config
             server_config_file = apache_config[apache_config.index(server_config_check) + len(server_config_check): -1]
             server_config_file = server_config_file.replace('"', '')
 
@@ -174,6 +189,7 @@ class BaseParser(object):
             for error in errors:
                 error_msg = "{0}\t{1}\n".format(error_msg, error)
             raise Exception(error_msg)
+        LOGGER.info("DONE CHECKING")
 
     def get_vhost_path_by_domain(self):
         LOGGER.info("In get_vhost_path_by_domain()")
@@ -207,6 +223,7 @@ class BaseParser(object):
 
     def get_vhosts_on_server(self):
         """ Use this method to search for all virtual hosts configured on the web server """
+        LOGGER.info("In get vhosts on server")
         server_virtual_hosts = []
         matches = self.aug.match("/augeas/load/Httpd/incl")
         for match in matches:
@@ -490,7 +507,7 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     :return:
     """
 
-    LOGGER.info("In verify and normalize file: %s %s %s %s %s" % (file_path, desc, name, apache_user, storage_path))
+    LOGGER.info("In verify and normalize file: path: %s desc: %s name: %s apache_user: %s storage_path: %s" % (file_path, desc, name, apache_user, storage_path))
     if not os.path.isfile(file_path):
         raise ParserException("%s %s could not be found on the filesystem" % (desc, file_path))
 

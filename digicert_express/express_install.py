@@ -341,10 +341,10 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
         print result
         import time
         time.sleep(5)
-        duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), api_key=api_key)
+        duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), CFG_PATH, common_name, api_key=api_key)
         print duplicate_cert
-        cert = duplicate_cert[0]
-        chain = duplicate_cert[2]
+        cert = duplicate_cert.get("cert", None)
+        chain = duplicate_cert.get("chain", None)
         key = private_key_file
     else:
         certs = express_client.download_cert(order_id, CFG_PATH, common_name, api_key=api_key)
@@ -356,6 +356,7 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
 
     # get all virtual hosts
     apache_parser = parsers.prepare_parser(common_name, cert, key, chain)
+    LOGGER.info("Now, getting the vhosts that are on this server **********")
     virtual_hosts = apache_parser.get_vhosts_on_server()
 
     # find matches from virtuals hosts and domains
@@ -388,7 +389,8 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
     # finally, configure apache
     for host in selected_hosts:
         LOGGER.info("Installing cert for domain: %s" % host)
-        parsers.configure_apache(host, cert, key, chain)
+        apache_parser.common_name = host
+        parsers.configure_apache(host, apache_parser.cert_path, apache_parser.key_path, apache_parser.chain_path, is_multidomain=True)
 
     return
 
