@@ -339,8 +339,8 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
 
         result = express_client.create_duplicate(order_id, duplicate_cert_data, api_key=api_key)
         print result
-        import timer
-        timer.sleep(5)
+        import time
+        time.sleep(5)
         duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), api_key=api_key)
         print duplicate_cert
         cert = duplicate_cert[0]

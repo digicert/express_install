@@ -22,9 +22,12 @@ def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=N
     LOGGER.info('In configure apache, parsing Apache configuration for virtual hosts...')
 
     if not apache_parser:
+        LOGGER.info("not apache parser")
         apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+        LOGGER.info("calling load apache configs()")
         apache_parser.load_apache_configs(apache_config)
 
+    LOGGER.info("getting ready to call get_vhost_path_by_domain")
     virtual_host = apache_parser.get_vhost_path_by_domain()
     LOGGER.info("In Configure apache, virtual host: %s" % virtual_host)
 

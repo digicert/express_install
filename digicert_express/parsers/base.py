@@ -31,11 +31,13 @@ class BaseParser(object):
 
         self.domain = domain
         self.dry_run = dry_run
+        LOGGER.info("Base Parser __init__")
 
         if not domain:
             raise ParserException("You need to specify a domain name to secure")
 
         if domain not in storage_path:
+            LOGGER.info("domain not in storage path")
             storage_path = "{0}/{1}".format(storage_path, domain.replace('.', '_'))
             storage_path = storage_path.replace('*', 'star')
 
@@ -48,6 +50,7 @@ class BaseParser(object):
         apache_user = apache_user.strip()
 
         # verify that the files exist and are readable by the user
+        LOGGER.info("verify and normalize paths")
         cert_path = verify_and_normalize_file(cert_path, "Certificate file", replace_chars(domain) + ".crt",
                                               apache_user, storage_path, dry_run, keep_original=False)
         chain_path = verify_and_normalize_file(chain_path, "CA Chain file", "DigiCertCA.crt",
@@ -55,16 +58,21 @@ class BaseParser(object):
         key_path = verify_and_normalize_file(key_path, "Key file", replace_chars(domain) + ".key",
                                              apache_user, storage_path, dry_run, keep_original=True)
 
+        LOGGER.info("self directives")
         self.directives = OrderedDict()
         self.directives['SSLEngine'] = "on"
         self.directives['SSLCertificateFile'] = cert_path
         self.directives['SSLCertificateKeyFile'] = key_path
         self.directives['SSLCertificateChainFile'] = chain_path
 
+        LOGGER.info("if not aug")
         if not aug:
+            LOGGER.info("instantiating aug")
             my_flags = augeas.Augeas.NONE | augeas.Augeas.NO_MODL_AUTOLOAD
             aug = augeas.Augeas(flags=my_flags)
+            LOGGER.info("finished instantiating aug")
         self.aug = aug
+        LOGGER.info("after setting self.aug")
 
     def load_apache_configs(self, apache_config_file=None):
         try:
@@ -482,26 +490,36 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     :return:
     """
 
+    LOGGER.info("In verify and normalize file: %s %s %s %s %s" % (file_path, desc, name, apache_user, storage_path))
     if not os.path.isfile(file_path):
         raise ParserException("%s %s could not be found on the filesystem" % (desc, file_path))
 
+    LOGGER.info("before os.path.exists")
     if not os.path.exists(storage_path):
         os.mkdir(storage_path)
 
+    LOGGER.info("copy the files to storage path")
     # copy the files to the storage path if they aren't already there
     path = os.path.dirname(file_path)
     old_name = os.path.basename(file_path)
+    LOGGER.info("before storage path check")
     if storage_path != path or old_name != name:
         normalized_cfg_file = '%s/%s' % (storage_path, name)
+        LOGGER.info("before if not dry run")
         if not dry_run:
+            LOGGER.info("before keep_original")
             if keep_original:
+                LOGGER.info("in keep original")
                 shutil.copy(file_path, normalized_cfg_file)
                 LOGGER.info('Copied %s to %s...' % (file_path, normalized_cfg_file))
             else:
+                LOGGER.info("else keep original")
                 shutil.move(file_path, normalized_cfg_file)
                 LOGGER.info('Moved %s to %s...' % (file_path, normalized_cfg_file))
+        LOGGER.info("normalized cfg file")
         file_path = normalized_cfg_file
 
+    LOGGER.info("after if block")
     # change the owners of the ssl files
     LOGGER.info("Updating permissions on %s" % file_path)
     os.system("chown root:{0} {1}".format(apache_user, file_path))
