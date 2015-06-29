@@ -149,6 +149,7 @@ class BaseParser(object):
         LOGGER.info("Verifying Apache configuration files can be parsed...")
         errors = []
         error_files = self.aug.match("/augeas//error")
+        LOGGER.info("\nError files: ".join(error_files))
         for path in error_files:
             # check to see if it was an error resulting from the use of the httpd lens
             lens_path = self.aug.get(path + "/lens")
@@ -167,16 +168,22 @@ class BaseParser(object):
             raise Exception(error_msg)
 
     def get_vhost_path_by_domain(self):
+        LOGGER.info("In get_vhost_path_by_domain()")
         matches = self.aug.match("/augeas/load/Httpd/incl")
         for match in matches:
+            LOGGER.info("match is: %s" % match)
             host_file = "/files{0}".format(self.aug.get(match))
+            LOGGER.info("host file is: %s" % host_file)
             if '~previous' not in host_file:
                 vhosts = self.aug.match("{0}/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
                 vhosts += self.aug.match("{0}/*/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
+                LOGGER.info("Vhosts: %s" % vhosts)
 
                 vhost = self._get_vhost_path_by_domain_and_port(vhosts, '443')
+                LOGGER.info("vhosts 443 is: %s" % vhost)
                 if not vhost:
                     vhost = self._get_vhost_path_by_domain_and_port(vhosts, '80')
+                    LOGGER.info("vhosts 80 is: %s" % vhost)
 
                     if vhost:
                         # we didn't find an existing 443 virtual host but found one on 80
@@ -226,6 +233,8 @@ class BaseParser(object):
                     for check in check_matches:
                         if self.aug.get(check + "/arg"):
                             aug_domain = self.aug.get(check + "/arg")
+                            LOGGER.info("aug_domain: %s :: and check: %s" % (aug_domain, check))
+                            LOGGER.info("self domain: %s" % self.domain)
                             if aug_domain == self.domain:
                                 return vhost
                             if self.domain.startswith('www.'):
@@ -394,7 +403,6 @@ class BaseParser(object):
             errors = []
             if self.dry_run:
                 self.lines.append("\nThe following security directives will be added/modified to your secure virtual host:\n")
-            LOGGER.info("just before directive parsing")
             for directive in self.directives:
                 matches = self.aug.match("{0}/*[self::directive=~regexp('{1}')]".format(vhost_path, create_regex(directive)))
                 if len(matches) > 0:
@@ -417,8 +425,7 @@ class BaseParser(object):
                     error_msg = "{0}\t{1}\n".format(error_msg, error)
                 raise Exception(error_msg)
 
-            if not self.dry_run:
-                self.aug.save()
+            self.aug.save()
 
             # check for augeas errors
             self.check_for_parsing_errors()

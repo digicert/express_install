@@ -58,7 +58,7 @@ def download_cert(order_id, file_path=None, domain=None, api_key=''):
         try:
             # create the download directory if it does not exist
             if file_path and not os.path.exists(file_path):
-                os.mkdir(file_path)
+                os.mkdir(file_path.replace('*', 'star'))
                 LOGGER.info('Created %s directory...' % file_path)
 
             if isinstance(certificates, str):
@@ -246,6 +246,8 @@ def list_duplicates(order_id, api_key=''):
 
 
 def get_duplicate(order_id, sub_id, api_key=''):
+    LOGGER.info("In get_duplicate()")
+    LOGGER.info("order id: %s sub id: %s" % (order_id, sub_id))
     if not api_key:
         api_key = get_temp_api_key()
 
@@ -254,10 +256,11 @@ def get_duplicate(order_id, sub_id, api_key=''):
         return order_client.download_duplicate(digicert_order_id=order_id, sub_id=sub_id)
 
 
-def create_duplicate(order_id, api_key='', *kwargs):
+def create_duplicate(order_id, cert_data, api_key=''):
+    LOGGER.info("In create_duplicate()")
     if not api_key:
         api_key = get_temp_api_key()
 
     if api_key:
         order_client = CertificateOrder(HOST, customer_api_key=api_key)
-        return order_client.create_duplicate(order_id, *kwargs)
+        return order_client.create_duplicate(order_id, **cert_data)

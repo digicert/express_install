@@ -23,6 +23,10 @@ class TestExpressClient(unittest.TestCase):
         print order_info
         self.assertIsNotNone(order_info, msg='could not get order info for order_id %s' % self.order_id)
 
+    def test_get_duplicate(self):
+        duplicate = express_client.get_duplicate('705658', '001', api_key='CEVA53TWXN2I3HI3XEUXNPGHAWXUIRI3GEHY533KNCOZTOH3HBSCWMX4QZY4CPCG6PQ4WBGREPUZSI3BN')
+        print duplicate
+
 
 if __name__ == '__main__':
     unittest.main()

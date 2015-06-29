@@ -153,15 +153,13 @@ def download_cert(args):
 
 
 def do_everything(args):
-    print args
-
     # check the dependencies
     check_for_deps(args)
 
     order_id = args.order_id
     domain = args.domain
     restart_web_server = args.restart_apache
-
+    raw_input("I'll attempt to detect virtual hosts that match the certificate and secure the web server with SSL")
     do_everything_with_args(order_id=order_id, domain=domain, restart_apache=restart_web_server)
 
 
@@ -263,49 +261,62 @@ def check_for_deps(args):
 def _process(domain, order_id, failed_pk_check=False):
     LOGGER.info("In _process()")
     order_info = express_client.get_order_info(order_id)
+    LOGGER.info("order info: \n")
+    LOGGER.info(order_info)
     api_key = order_info.get('api_key')
     if order_info.get('status') != 'issued':
         LOGGER.info("order: %s is not issued.  status: %s" % (order_id, order_info.get('status')))
-        if not order_info.get('certificate'):
+        if order_info.get('status') == 'needs_csr':
             LOGGER.info("order does not have CSR.  Let's create one...")
             private_key_file, csr_file = express_utils.create_csr(domain)
             express_client.upload_csr(order_id, csr_file, api_key=api_key)
-            order_info = express_client.get_order_info(order_id)
+            order_info = express_client.get_order_info(order_id, api_key=api_key)
+            LOGGER.info("order: %s status: %s" % (order_id, order_info.get('status')))
+            LOGGER.info("order info: \n")
+            LOGGER.info(order_info)
             if order_info.get('status') == 'issued':
                 LOGGER.info("order is issued now.  Let's install the cert and configure the web server.")
-                _download_and_install_cert(order_id, domain, api_key=api_key, create_csr=True)
+
+                if order_info.get('allow_duplicates'):
+                    _download_and_install_multidomain_cert(order_id, domain, order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key)
+                else:
+                    _download_and_install_cert(order_id, domain, private_key=private_key_file, api_key=api_key, create_csr=True)
                 return
             # TODO: we may need to add better handling for csr if it exists
-        raise Exception('This certificate cannot be installed at this time')
+        raise Exception('This certificate cannot be installed at this time because something happened getting the status back from the site')
     else:
         if order_info.get('allow_duplicates'):
             response = raw_input("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  'y/n/q'")
             LOGGER.info("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  'y/n/q'")
             LOGGER.info("Duplicate Response: %s" % response)
             if response.lower().strip() == 'y': # TODO: make this more robust
-                _download_and_install_duplicate_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_csr=True)
+                LOGGER.info("in creating duplicate cert")
+                _download_and_install_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_duplicate=True)
             else:
                 if not failed_pk_check:
                     _download_and_install_cert(order_id, domain, api_key=api_key, create_csr=False)
                 else:
-                    raise Exception('This certificate cannot be installed at this time')
+                    raise Exception('This certificate cannot be installed at this time because it failed the pk check.')
         else:
             if not failed_pk_check:
+                LOGGER.info("order does not support duplicates, so let's just install")
                 _download_and_install_cert(order_id, domain, api_key=api_key, create_csr=False)
             else:
                 raise Exception('This certificate cannot be installed at this time')
 
 
-def _download_and_install_cert(order_id, domain, api_key='', create_csr=False):
+def _download_and_install_cert(order_id, domain, private_key='', api_key='', create_csr=False):
     LOGGER.info("In download and install cert")
+    private_key_file = private_key
     if create_csr:
         private_key_file, csr_file = express_utils.create_csr(domain)
         express_client.upload_csr(order_id, csr_file, api_key) # TODO: maybe catch result to see if successful
+
     certs = express_client.download_cert(order_id, CFG_PATH, domain, api_key=api_key)
     chain = certs.get('chain', None)
     cert = certs.get('cert', None)
     key = private_key_file
-    if not private_key_file:
+    if not key:
         key = parsers.locate_cfg_file('%s.key' % domain.replace('.', '_'), 'Private key', validate_key=True,
                                           cert=cert,
                                           default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
@@ -317,18 +328,31 @@ def _download_and_install_cert(order_id, domain, api_key='', create_csr=False):
     parsers.configure_apache(domain, cert, key, chain)
 
 
-def _download_and_install_duplicate_cert(order_id, common_name, domains, api_key=''):
-    LOGGER.info("In download and install duplicate cert")
-    private_key_file, csr_file = express_utils.create_csr(common_name)
+def _download_and_install_multidomain_cert(order_id, common_name, domains, private_key='', api_key='', create_duplicate=False):
+    LOGGER.info("In download and install multi-domain cert")
+    key = private_key
+    if create_duplicate:
+        private_key_file, csr_file = express_utils.create_csr(common_name)
 
-    private_key = open(private_key_file, 'r')
-    duplicate_cert_data = {"certificate": {"common_name": common_name, "csr": private_key.read(), "signature_hash": "sha256", "server_platform": {2}, "dns_names": domains}}
+        csr = open(csr_file, 'r').read()
+        duplicate_cert_data = {"certificate": {"common_name": common_name, "csr": csr, "signature_hash": "sha256", "server_platform": {"id": 2}, "dns_names": domains}}
 
-    result = express_client.create_duplicate(order_id, api_key=api_key, **duplicate_cert_data)
-    duplicate_cert = express_client.get_duplicate(order_id, result.get('id'), api_key=api_key)
-    cert = duplicate_cert[0]
-    chain = duplicate_cert[2]
-    key = private_key_file
+        result = express_client.create_duplicate(order_id, duplicate_cert_data, api_key=api_key)
+        print result
+        import timer
+        timer.sleep(5)
+        duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), api_key=api_key)
+        print duplicate_cert
+        cert = duplicate_cert[0]
+        chain = duplicate_cert[2]
+        key = private_key_file
+    else:
+        certs = express_client.download_cert(order_id, CFG_PATH, common_name, api_key=api_key)
+        chain = certs.get('chain', None)
+        cert = certs.get('cert', None)
+
+    if not key:
+        raise Exception('Could not find private key')
 
     # get all virtual hosts
     apache_parser = parsers.prepare_parser(common_name, cert, key, chain)
@@ -362,9 +386,9 @@ def _download_and_install_duplicate_cert(order_id, common_name, domains, api_key
                 selected_hosts.append(choice[1])
 
     # finally, configure apache
-    for s in selected_hosts:
-        LOGGER.info("Installing cert for domain: %s" % s)
-        parsers.configure_apache(s, cert, key, chain, apache_parser=apache_parser)
+    for host in selected_hosts:
+        LOGGER.info("Installing cert for domain: %s" % host)
+        parsers.configure_apache(host, cert, key, chain)
 
     return
 

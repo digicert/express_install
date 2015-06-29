@@ -282,8 +282,8 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
     server_name = server_name.replace("http://", "")
     server_name = server_name.replace("https://", "")
 
-    key_file_name = "{0}.key".format(server_name.replace('.', '_'))
-    csr_file_name = "{0}.csr".format(server_name.replace('.', '_'))
+    key_file_name = "{0}.key".format(server_name.replace('.', '_').replace('*', 'star'))
+    csr_file_name = "{0}.csr".format(server_name.replace('.', '_').replace('*', 'star'))
 
     # remove commas from org, state, & country
     org = org.replace(",", "")

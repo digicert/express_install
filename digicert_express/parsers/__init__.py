@@ -19,20 +19,19 @@ def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=N
     :param dry_run:
     :return:
     """
-    LOGGER.info('Parsing Apache configuration for virtual hosts...')
+    LOGGER.info('In configure apache, parsing Apache configuration for virtual hosts...')
 
     if not apache_parser:
         apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
         apache_parser.load_apache_configs(apache_config)
 
     virtual_host = apache_parser.get_vhost_path_by_domain()
+    LOGGER.info("In Configure apache, virtual host: %s" % virtual_host)
 
-    log_virtual_host = _log_virtual_host(host, virtual_host)
-
-    LOGGER.info('adding certificate directives for host: %s...' % log_virtual_host)
+    LOGGER.info('adding certificate directives for host: %s...' % host)
     apache_parser.set_certificate_directives(virtual_host)
 
-    LOGGER.info('enabling Apache SSL module for host: %s' % log_virtual_host)
+    LOGGER.info('enabling Apache SSL module for host: %s' % host)
     express_utils.enable_ssl_mod()
 
     if not dry_run:

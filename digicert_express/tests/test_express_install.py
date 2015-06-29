@@ -52,9 +52,9 @@ class TestExpressClient(unittest.TestCase):
         print doc
 
     def test_get_temp_key(self):
-        username = ''
-        password = ''
-        HOST = ''
+        username = 'kfischer@nocsr.com'
+        password = 'Password01'
+        HOST = 'localhost.digicert.com'
         result = Request(action=LoginCommand(username, password), host=HOST).send()
         if result['http_status'] >= 300:
             raise Exception('Login failed:  %d - %s' % (result['http_status'], result['http_reason']))
