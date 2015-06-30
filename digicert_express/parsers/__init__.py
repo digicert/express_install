@@ -60,6 +60,7 @@ def prepare_parser(host, cert, key, chain, apache_config=None, dry_run=False):
     return apache_parser
 
 
+# TODO: method not used remove
 def _log_virtual_host(host, virtual_host):
     """
     method used for logging the virtual host to the log file

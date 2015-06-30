@@ -61,9 +61,9 @@ class BaseParser(object):
         # verify that the files exist and are readable by the user
         LOGGER.info("verify and normalize paths")
         cert_path = verify_and_normalize_file(cert_path, "Certificate file", cert_name,
-                                              apache_user, storage_path, dry_run, keep_original=False)
+                                              apache_user, storage_path, dry_run, keep_original=True)
         chain_path = verify_and_normalize_file(chain_path, "CA Chain file", "DigiCertCA.crt",
-                                               apache_user, storage_path, dry_run, keep_original=False)
+                                               apache_user, storage_path, dry_run, keep_original=True)
         key_path = verify_and_normalize_file(key_path, "Key file", pk_name,
                                              apache_user, storage_path, dry_run, keep_original=True)
 

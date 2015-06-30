@@ -392,7 +392,17 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
         apache_parser.common_name = host
         parsers.configure_apache(host, apache_parser.cert_path, apache_parser.key_path, apache_parser.chain_path, is_multidomain=True)
 
+    cleanup()
+
     return
+
+
+def cleanup():
+    # delete all *.crt
+    import os
+    for path in os.listdir(CFG_PATH):
+        if path.endswith('.crt'):
+            os.remove(path)
 
 
 if __name__ == '__main__':
