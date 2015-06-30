@@ -159,11 +159,13 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
         try:
             while not file_path:
                 try:
-                    file_path = raw_input(
-                        '%s file could not be found.  Please provide a path to the file: \n Or "q" if you do not have a private key: ' % file_type)
-                    if file_path:
-                        if file_path.strip().lower() == 'q':
-                            return ''
+                    answer = raw_input("Do you have a private key for the certificate you want to install? [y/n]  ")
+                    if answer and answer.strip().lower() == 'y':
+                        file_path = raw_input('Please provide a full absolute path to the file: ')
+                    else:
+                        file_path = 'q'
+                        return ''
+
                     if os.path.exists(file_path):
                         if validate_key and cert:
                             if not express_utils.validate_key(file_path, cert):

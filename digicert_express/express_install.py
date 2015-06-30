@@ -159,7 +159,7 @@ def do_everything(args):
     order_id = args.order_id
     domain = args.domain
     restart_web_server = args.restart_apache
-    raw_input("I'll attempt to detect virtual hosts that match the certificate and secure the web server with SSL")
+    raw_input("I'll attempt to secure virtual hosts configured on this web server with an SSL certificate.  Press any key to continue.")
     do_everything_with_args(order_id=order_id, domain=domain, restart_apache=restart_web_server)
 
 

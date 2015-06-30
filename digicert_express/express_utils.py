@@ -48,31 +48,34 @@ def restart_apache(domain='', verbose=False):
     LOGGER.info("Restarting your apache server")
 
     distro_name = determine_platform()
+    LOGGER.info("distro name: %s" % distro_name[0])
     command = APACHE_COMMANDS.get(distro_name[0])
+    LOGGER.info("apache command: %s" % command)
     if not verbose:
         command += " 2>/dev/null"
     subprocess.call(command, shell=True)
 
     have_error = False
-    apache_process_result = check_for_apache_process(distro_name)
+    apache_process_result = check_for_apache_process(distro_name[0])
+    LOGGER.info("apache process result: %s" % apache_process_result)
 
     if not apache_process_result:
         LOGGER.error("ERROR: Apache did not restart successfully.")
         have_error = True
 
-    if domain and apache_process_result:
-        site_result = check_for_site_availability(domain)
-        ssl_result = False
-        if site_result:
-            ssl_result = check_for_site_openssl(domain)
-
-        if not site_result:
-            LOGGER.error("ERROR: Could not connect to the domain %s via HTTPS." % domain)
-            have_error = True
-
-        if not ssl_result:
-            LOGGER.error("ERROR: Could not connect")
-            have_error = True
+    # if domain and apache_process_result:
+    #     site_result = check_for_site_availability(domain)
+    #     ssl_result = False
+    #     if site_result:
+    #         ssl_result = check_for_site_openssl(domain)
+    #
+    #     if not site_result:
+    #         LOGGER.error("ERROR: Could not connect to the domain %s via HTTPS." % domain)
+    #         have_error = True
+    #
+    #     if not ssl_result:
+    #         LOGGER.error("ERROR: Could not connect")
+    #         have_error = True
 
     if not have_error:
         LOGGER.info('Apache restarted successfully.')
