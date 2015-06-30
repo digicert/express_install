@@ -402,7 +402,7 @@ def cleanup():
     import os
     for path in os.listdir(CFG_PATH):
         if path.endswith('.crt'):
-            os.remove(path)
+            os.remove(CFG_PATH + '/' + path)
 
 
 if __name__ == '__main__':
