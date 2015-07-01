@@ -31,7 +31,7 @@ class TestExpressUtils(unittest.TestCase):
         self.assertEqual(csr['key'], csr['key'])
 
     def test_check_for_deps_debian(self):
-        packages_installed = express_utils.check_for_deps_debian(verbose=False, install_prompt=False)
+        packages_installed = express_utils.check_for_deps_debian(install_prompt=False)
         print packages_installed
         self.assertListEqual(packages_installed, [], msg="Package pre-reqs are not met")
 

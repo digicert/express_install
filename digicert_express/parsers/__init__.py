@@ -7,7 +7,7 @@ from express_utils import CFG_PATH
 from parsers.base import BaseParser
 
 
-def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=None, dry_run=False, is_multidomain=False):
+def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=None, is_multidomain=False):
     """
     Main method to configure a web server.
     :param host:  domain name to secure
@@ -16,70 +16,33 @@ def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=N
     :param chain: path to certificate chain file for securing the web server
     :param apache_parser: base parser object
     :param apache_config: path to apache config file
-    :param dry_run:
     :return:
     """
-    LOGGER.info('In configure apache, parsing Apache configuration for virtual hosts...')
-    LOGGER.info("host: {0}, cert: {1}, key: {2}, chain: {3}".format(host, cert, key, chain))
 
+    LOGGER.info("Configuring Web Server for virtual host: %s" % host)
     if not apache_parser:
-        apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run, is_multidomain=is_multidomain)
-        LOGGER.info("calling load apache configs()")
+        apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, is_multidomain=is_multidomain)
         apache_parser.load_apache_configs(apache_config)
 
-    LOGGER.info("getting ready to call get_vhost_path_by_domain")
     virtual_host = apache_parser.get_vhost_path_by_domain()
-    LOGGER.info("In Configure apache, virtual host: %s" % virtual_host)
-
-    LOGGER.info('adding certificate directives for host: %s...' % host)
     apache_parser.set_certificate_directives(virtual_host)
-
-    LOGGER.info('enabling Apache SSL module for host: %s' % host)
     express_utils.enable_ssl_mod()
 
-    if not dry_run:
-        LOGGER.info('Apache configuration updated successfully.')
-        print ''
+    LOGGER.info('Apache configuration updated successfully.')
 
 
-def prepare_parser(host, cert, key, chain, apache_config=None, dry_run=False):
+def prepare_parser(host, cert, key, chain, apache_config=None):
     """
     :param host:
     :param cert:
     :param key:
     :param chain:
     :param apache_config:
-    :param dry_run:
     :return:
     """
-    LOGGER.info("host: {0}, cert: {1}, key: {2}, chain: {3}".format(host, cert, key, chain))
-    LOGGER.info('Parsing Apache configuration for virtual hosts...')
-    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run)
+    apache_parser = BaseParser(host, cert, key, chain, CFG_PATH)
     apache_parser.load_apache_configs(apache_config)
     return apache_parser
-
-
-# TODO: method not used remove
-def _log_virtual_host(host, virtual_host):
-    """
-    method used for logging the virtual host to the log file
-    :param host: domain to log
-    :param virtual_host: augeas virtual host path
-    :return:
-    """
-    # TODO: remove this hack for logging
-    if virtual_host:
-        begin_index = virtual_host.find('/etc')
-        end_index = virtual_host.find('/VirtualHost')
-        if begin_index and end_index:
-            log_virtual_host = virtual_host[begin_index:end_index]
-            LOGGER.info('found virtual host %s...' % log_virtual_host)
-    else:
-        log_virtual_host = 'cannot find virtual host'
-        LOGGER.info('%s: %s' % (log_virtual_host, host))
-        raise Exception("Virtual Host was not found for {0}.  Please verify that the 'ServerName' directive in "
-                                "your Virtual Host is set to {1} and try again.".format(host, host))
-    return log_virtual_host
 
 
 def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, cert=None, default_search_path=CFG_PATH):
@@ -92,7 +55,7 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
     :param default_search_path:
     :return:
     """
-    # TODO: break up this method??
+
     LOGGER.info("Looking for {0}...".format(file_type))
     if isinstance(cfg_file_names, basestring):
         names = [cfg_file_names]
