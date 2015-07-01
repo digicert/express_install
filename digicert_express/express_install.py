@@ -280,14 +280,14 @@ def _process(domain, order_id, failed_pk_check=False):
                 if order_info.get('allow_duplicates'):
                     _download_and_install_multidomain_cert(order_id, domain, order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key)
                 else:
-                    _download_and_install_cert(order_id, domain, private_key=private_key_file, api_key=api_key, create_csr=True)
+                    _download_and_install_cert(order_id, domain, private_key=private_key_file, api_key=api_key, create_csr=False)
                 return
             # TODO: we may need to add better handling for csr if it exists
         raise Exception('This certificate cannot be installed at this time because something happened getting the status back from the site')
     else:
         if order_info.get('allow_duplicates'):
-            response = raw_input("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  'y/n/q'")
-            LOGGER.info("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  'y/n/q'")
+            response = raw_input("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
+            LOGGER.info("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
             LOGGER.info("Duplicate Response: %s" % response)
             if response.lower().strip() == 'y': # TODO: make this more robust
                 LOGGER.info("in creating duplicate cert")

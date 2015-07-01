@@ -109,13 +109,10 @@ class BaseParser(object):
     def _find_apache_config(self):
         distro = express_utils.determine_platform()
         apache_command = "`which {0}` -V 2>/dev/null".format(APACHE_SERVICES.get(distro[0]))
-        print apache_command
         apache_config = os.popen(apache_command).read()
         if apache_config:
             server_config_check = "SERVER_CONFIG_FILE="
             httpd_root_check = "HTTPD_ROOT="
-            print "*************"
-            print apache_config
             server_config_file = apache_config[apache_config.index(server_config_check) + len(server_config_check): -1]
             server_config_file = server_config_file.replace('"', '')
 
