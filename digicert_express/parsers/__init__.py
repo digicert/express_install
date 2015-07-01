@@ -23,7 +23,6 @@ def configure_apache(host, cert, key, chain, apache_parser=None, apache_config=N
     LOGGER.info("host: {0}, cert: {1}, key: {2}, chain: {3}".format(host, cert, key, chain))
 
     if not apache_parser:
-        LOGGER.info("not apache parser")
         apache_parser = BaseParser(host, cert, key, chain, CFG_PATH, dry_run=dry_run, is_multidomain=is_multidomain)
         LOGGER.info("calling load apache configs()")
         apache_parser.load_apache_configs(apache_config)

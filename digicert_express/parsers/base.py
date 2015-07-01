@@ -78,14 +78,10 @@ class BaseParser(object):
         self.directives['SSLCertificateKeyFile'] = key_path
         self.directives['SSLCertificateChainFile'] = chain_path
 
-        LOGGER.info("if not aug")
         if not aug:
-            LOGGER.info("instantiating aug")
             my_flags = augeas.Augeas.NONE | augeas.Augeas.NO_MODL_AUTOLOAD
             aug = augeas.Augeas(flags=my_flags)
-            LOGGER.info("finished instantiating aug")
         self.aug = aug
-        LOGGER.info("after setting self.aug {0}".format(self.aug))
 
     def load_apache_configs(self, apache_config_file=None):
         try:
@@ -172,7 +168,6 @@ class BaseParser(object):
         LOGGER.info("Verifying Apache configuration files can be parsed...")
         errors = []
         error_files = self.aug.match("/augeas//error")
-        LOGGER.info("\nError files: ".join(error_files))
         for path in error_files:
             # check to see if it was an error resulting from the use of the httpd lens
             lens_path = self.aug.get(path + "/lens")
@@ -189,25 +184,19 @@ class BaseParser(object):
             for error in errors:
                 error_msg = "{0}\t{1}\n".format(error_msg, error)
             raise Exception(error_msg)
-        LOGGER.info("DONE CHECKING")
 
     def get_vhost_path_by_domain(self):
         LOGGER.info("In get_vhost_path_by_domain()")
         matches = self.aug.match("/augeas/load/Httpd/incl")
         for match in matches:
-            LOGGER.info("match is: %s" % match)
             host_file = "/files{0}".format(self.aug.get(match))
-            LOGGER.info("host file is: %s" % host_file)
             if '~previous' not in host_file:
                 vhosts = self.aug.match("{0}/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
                 vhosts += self.aug.match("{0}/*/*[label()=~regexp('{1}')]".format(host_file, create_regex("VirtualHost")))
-                LOGGER.info("Vhosts: %s" % vhosts)
 
                 vhost = self._get_vhost_path_by_domain_and_port(vhosts, '443')
-                LOGGER.info("vhosts 443 is: %s" % vhost)
                 if not vhost:
                     vhost = self._get_vhost_path_by_domain_and_port(vhosts, '80')
-                    LOGGER.info("vhosts 80 is: %s" % vhost)
 
                     if vhost:
                         # we didn't find an existing 443 virtual host but found one on 80
@@ -258,8 +247,6 @@ class BaseParser(object):
                     for check in check_matches:
                         if self.aug.get(check + "/arg"):
                             aug_domain = self.aug.get(check + "/arg")
-                            LOGGER.info("aug_domain: %s :: and check: %s" % (aug_domain, check))
-                            LOGGER.info("self domain: %s" % self.domain)
                             if aug_domain == self.domain:
                                 return vhost
                             if self.domain.startswith('www.'):
@@ -511,32 +498,25 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     if not os.path.isfile(file_path):
         raise ParserException("%s %s could not be found on the filesystem" % (desc, file_path))
 
-    LOGGER.info("before os.path.exists")
     if not os.path.exists(storage_path):
+        LOGGER.info("creating directory: %s" % storage_path)
         os.mkdir(storage_path)
 
     LOGGER.info("copy the files to storage path")
     # copy the files to the storage path if they aren't already there
     path = os.path.dirname(file_path)
     old_name = os.path.basename(file_path)
-    LOGGER.info("before storage path check")
     if storage_path != path or old_name != name:
         normalized_cfg_file = '%s/%s' % (storage_path, name)
-        LOGGER.info("before if not dry run")
         if not dry_run:
-            LOGGER.info("before keep_original")
             if keep_original:
-                LOGGER.info("in keep original")
                 shutil.copy(file_path, normalized_cfg_file)
                 LOGGER.info('Copied %s to %s...' % (file_path, normalized_cfg_file))
             else:
-                LOGGER.info("else keep original")
                 shutil.move(file_path, normalized_cfg_file)
                 LOGGER.info('Moved %s to %s...' % (file_path, normalized_cfg_file))
-        LOGGER.info("normalized cfg file")
         file_path = normalized_cfg_file
 
-    LOGGER.info("after if block")
     # change the owners of the ssl files
     LOGGER.info("Updating permissions on %s" % file_path)
     os.system("chown root:{0} {1}".format(apache_user, file_path))

@@ -404,11 +404,14 @@ def cleanup():
         if path.endswith('.crt'):
             os.remove(CFG_PATH + '/' + path)
 
+    if os.path.exists('/tmp/certs'):
+        import shutil
+        shutil.rmtree('/tmp/certs')
+
 
 if __name__ == '__main__':
     try:
         run()
-        # do_everything_with_args(order_id='00687308', domain='nocsr.com', create_csr=True)
         print 'Finished'
     except KeyboardInterrupt:
         print
