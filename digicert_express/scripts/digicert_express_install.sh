@@ -255,6 +255,7 @@ FILEPATH="/etc/digicert/$DOMAIN_PATH"
 ORDER=""
 CERTIFICATE=""
 CERTIFICATE_CHAIN=""
+
 if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
     if ! [[ "$CERTIFICATE" = "" || "$CERTIFICATE_CHAIN" = "" ]]; then
         sudo mkdir -p "$FILEPATH"
@@ -266,18 +267,16 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
 
         dc_log "Copying certificate chain file to $FILEPATH/DigiCertCA.crt"
         echo "$CERTIFICATE_CHAIN" | sudo tee "$FILEPATH/DigiCertCA.crt" > /dev/null
-
-        # run express install
-        dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
-        sudo express_install all --domain "$DOMAIN" --order_id "$ORDER"
-    else
-        # run express install
-        dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\" --create_csr"
-        sudo express_install all --domain "$DOMAIN" --order_id "$ORDER" --create_csr
     fi
+
+    # run express install
+    dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
+    sudo express_install all --domain "$DOMAIN" --order_id "$ORDER"
+
 else
     dc_log "ERROR: You are missing your domain name or order id, please contact digicert support"
 fi
+
 
 dc_log
 dc_log
