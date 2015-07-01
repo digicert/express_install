@@ -48,9 +48,7 @@ def restart_apache(domain=''):
     LOGGER.info("Restarting your apache server")
 
     distro_name = determine_platform()
-    LOGGER.info("distro name: %s" % distro_name[0])
     command = APACHE_COMMANDS.get(distro_name[0])
-    LOGGER.info("apache command: %s" % command)
     subprocess.call(command, shell=True)
 
     have_error = False
