@@ -81,7 +81,7 @@ class BaseParser(object):
                 self.aug.load()
 
                 # get all of the included configuration files and add them to augeas
-                LOGGER.info("Loading apache configuration files...")
+                LOGGER.info("Loading Apache configuration files...")
                 self._load_included_files(apache_config_file)
                 self.check_for_parsing_errors()
             else:
@@ -426,15 +426,14 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
     :return:
     """
 
-    LOGGER.info("In verify and normalize file: path: %s desc: %s name: %s apache_user: %s storage_path: %s" % (file_path, desc, name, apache_user, storage_path))
     if not os.path.isfile(file_path):
         raise ParserException("%s %s could not be found on the filesystem" % (desc, file_path))
 
     if not os.path.exists(storage_path):
-        LOGGER.info("creating directory: %s" % storage_path)
+        LOGGER.info("Creating directory: %s" % storage_path)
         os.mkdir(storage_path)
 
-    LOGGER.info("Coping files to storage path")
+    LOGGER.info("Coping files to: %s" % storage_path)
     # copy the files to the storage path if they aren't already there
     path = os.path.dirname(file_path)
     old_name = os.path.basename(file_path)

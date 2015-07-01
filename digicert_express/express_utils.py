@@ -55,7 +55,6 @@ def restart_apache(domain=''):
 
     have_error = False
     apache_process_result = check_for_apache_process(distro_name[0])
-    LOGGER.info("apache process result: %s" % apache_process_result)
 
     if not apache_process_result:
         LOGGER.error("ERROR: Apache did not restart successfully.")
@@ -284,8 +283,6 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
     LOGGER.info("Created private key file {0}...".format(key_file_name))
     LOGGER.info("Created CSR file {0}...".format(csr_file_name))
     print ""
-    LOGGER.info("CSR: %s" % open(csr_file_name, 'r').read())
-    LOGGER.info("KEY: %s" % open(key_file_name, 'r').read())
     return key_file_name, csr_file_name
 
 
