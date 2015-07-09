@@ -10,7 +10,10 @@ class ExpressInstallLogger(object):
         # consoleHandler.setFormatter(logFormatter)
         self.log.addHandler(consoleHandler)
 
-        fileHandler = logging.FileHandler("{0}/{1}".format(log_path, file_name))
+        try:
+            fileHandler = logging.FileHandler("{0}/{1}".format(log_path, file_name))
+        except IOError:
+            pass # there must have been a problem opening the log file
         fileHandler.setFormatter(logFormatter)
         self.log.addHandler(fileHandler)
 

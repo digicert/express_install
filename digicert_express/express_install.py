@@ -50,7 +50,7 @@ def run():
     try:
         print ''
         LOGGER.info('DigiCert Express Install Web Server Configuration Utility')
-        raw_input("I'll attempt to secure virtual hosts configured on this web server with an SSL certificate.  Press any key to continue.")
+        raw_input("I'll attempt to secure virtual hosts configured on this web server with an SSL certificate.  Press ENTER to continue.")
         print ''
         verify_requirements()
         args.func(args)
@@ -172,12 +172,12 @@ def _process(domain, order_id, failed_pk_check=False):
     api_key = order_info.get('api_key')
     if order_info.get('status') != 'issued':
         if order_info.get('status') == 'needs_csr':
-            LOGGER.info("order needs a CSR.")
+            LOGGER.info("Order needs a CSR.")
             private_key_file, csr_file = express_utils.create_csr(domain)
             express_client.upload_csr(order_id, csr_file, api_key=api_key)
             order_info = express_client.get_order_info(order_id, api_key=api_key)
             if order_info.get('status') == 'issued':
-                LOGGER.info("order is issued")
+                LOGGER.info("Order is issued")
 
                 if order_info.get('allow_duplicates'):
                     _download_and_install_multidomain_cert(order_id, domain, order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key)

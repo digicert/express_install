@@ -433,7 +433,7 @@ def verify_and_normalize_file(file_path, desc, name, apache_user, storage_path, 
         LOGGER.info("Creating directory: %s" % storage_path)
         os.mkdir(storage_path)
 
-    LOGGER.info("Coping files to: %s" % storage_path)
+    LOGGER.info("Copying files to: %s" % storage_path)
     # copy the files to the storage path if they aren't already there
     path = os.path.dirname(file_path)
     old_name = os.path.basename(file_path)

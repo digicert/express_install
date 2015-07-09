@@ -40,10 +40,12 @@ def download_cert(order_id, file_path=None, domain=None, api_key=''):
     msg_downloading = 'Downloading certificate files for: '
     msg_from_dc = 'from %s' % HOST
     if domain:
-        LOGGER.info('%s domain "%s" %s (Order ID: %s)...' % (msg_downloading, domain, msg_from_dc, order_id))
+        LOGGER.info('%s domain "%s" %s (Order ID: %s)...' % (msg_downloading, domain.lower(), msg_from_dc, order_id))
     else:
         LOGGER.info('%s order ID "%s" %s...' % (msg_downloading, order_id, msg_from_dc))
     print ''
+
+    domain = domain.lower()
 
     if not api_key:
         api_key = get_temp_api_key()
