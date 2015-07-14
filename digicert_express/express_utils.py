@@ -111,7 +111,7 @@ def determine_platform():
 
 
 def determine_python_version():
-    LOGGER.info("Found Python version: %s.%s.%s" % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro))
+    LOGGER.info("Found Python version: %s.%s.%s" % (sys.version_info[0], sys.version_info[1], sys.version_info[2]))
     return '%s.%s.%s' % (sys.version_info[0], sys.version_info[1], sys.version_info[2]) # 0 major, 1 minor, 2 micro for python 2.6
 
 
