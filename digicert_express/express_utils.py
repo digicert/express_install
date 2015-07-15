@@ -81,6 +81,15 @@ def copy_cert(cert_path, apache_path):
     shutil.copyfile(cert_path, apache_path)
 
 
+def get_dns_names_from_openssl(path_to_cert):
+    command = "sudo openssl x509 -in %s -text -noout | sed -nr '/^ {12}X509v3 Subject Alternative Name/{n; s/(^|,) *DNS:/,/g; s/(^|,) [^,]*//g;p}'" % path_to_cert
+    dns_names_result = os.popen(command).read()
+    dns_names = dns_names_result.split(',')
+    dns_names = [x for x in dns_names if x]
+    return dns_names
+
+
+
 def enable_ssl_mod():
     LOGGER.info('Enabling Apache SSL module...')
     if determine_platform()[0] != 'CentOS' and not is_ssl_mod_enabled('apache2ctl'):

@@ -88,6 +88,9 @@ class BaseParser(object):
                 raise Exception("We could not find your main apache configuration file.  Please ensure that apache is "
                                 "running or include the path to your virtual host file in your command line arguments")
         except Exception, e:
+            import traceback
+            traceback.print_exc(file=sys.stdout)
+            print e.message
             raise e
             self.check_for_parsing_errors()
             raise ParserException(

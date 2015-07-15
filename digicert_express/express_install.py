@@ -40,6 +40,7 @@ def run():
     all_parser = subparsers.add_parser("all", help='Download your certificate and secure your domain in one step')
     all_parser.add_argument("--domain", action="store", help="Domain name to secure")
     all_parser.add_argument("--key", action="store", help="Path to private key file used to order certificate")
+    all_parser.add_argument("--sub_id", action="store", help="Duplicate ID if it exists")
     all_parser.add_argument("--api_key", action="store", help="Skip authentication step with a DigiCert API key")
     all_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
     all_parser.add_argument("--restart_apache", action="store_true", help="Restart Apache server without prompting")
@@ -55,6 +56,7 @@ def run():
         verify_requirements()
         args.func(args)
     except Exception, e:
+        raise e
         LOGGER.error(e)
         print ''
 
@@ -69,11 +71,12 @@ def do_everything(args):
 
     order_id = args.order_id
     domain = args.domain
+    sub_id = args.sub_id
     restart_web_server = args.restart_apache
-    do_everything_with_args(order_id=order_id, domain=domain, restart_apache=restart_web_server)
+    do_everything_with_args(order_id=order_id, domain=domain, sub_id=sub_id, restart_apache=restart_web_server)
 
 
-def do_everything_with_args(order_id='', domain='', restart_apache=''):
+def do_everything_with_args(order_id='', domain='', restart_apache='', sub_id=''):
     LOGGER.info("Looking up order info")
     order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
 
@@ -82,26 +85,32 @@ def do_everything_with_args(order_id='', domain='', restart_apache=''):
         LOGGER.info("Querying for issued certificates with order_id %s" % order_id)
 
         # 2.  look for key, chain and csr
-        cert = parsers.locate_cfg_file('%s.crt' % common_name.replace('.', '_'), 'Certificate', prompt=False,
-                                           default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
+        cert = parsers.locate_cfg_file('%s.crt' % express_utils.replace_chars(common_name), 'Certificate', prompt=False,
+                                           default_search_path="{0}/{1}".format(CFG_PATH, express_utils.replace_chars(domain)))
         chain = parsers.locate_cfg_file(['DigiCertCA.crt'], 'Certificate chain', prompt=False,
-                                           default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
-        key = parsers.locate_cfg_file('%s.key' % common_name.replace('.', '_'), 'Private key', validate_key=True,
+                                           default_search_path="{0}/{1}".format(CFG_PATH, express_utils.replace_chars(domain)))
+        key = parsers.locate_cfg_file('%s.key' % express_utils.replace_chars(common_name), 'Private key', validate_key=True,
                                           cert=cert,
-                                          default_search_path="{0}/{1}".format(CFG_PATH, domain.replace('.', '_')))
+                                          default_search_path="{0}/{1}".format(CFG_PATH, express_utils.replace_chars(domain)))
 
         if cert and chain and key:
             LOGGER.info("Found cert, chain and key")
             LOGGER.info("Installing cert for domain: %s" % domain)
-            parsers.configure_apache(domain, cert, key, chain)
+
+            dns_names = express_utils.get_dns_names_from_openssl(cert)
+
+            _install_multidomain_cert(order_id, domain, dns_names, cert, key=key, chain=chain)
+            return
 
         if not cert and not chain and not key:
             LOGGER.info("Did not find cert, chain and key, proceeding...")
             _process(domain, order_id, failed_pk_check=False)
+            return
 
         if cert and chain and not key:
             LOGGER.info("Found cert and chain but not key, proceeding...")
             _process(domain, order_id, failed_pk_check=True)
+            return
 
         if restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
             express_utils.restart_apache(domain)
@@ -180,7 +189,8 @@ def _process(domain, order_id, failed_pk_check=False):
                 LOGGER.info("Order is issued")
 
                 if order_info.get('allow_duplicates'):
-                    _download_and_install_multidomain_cert(order_id, domain, order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key)
+                    cert, key, chain = _download_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key, create_duplicate=True)
+                    _install_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), cert=cert, key=private_key_file, chain=chain, api_key=api_key)
                 else:
                     _download_and_install_cert(order_id, domain, private_key=private_key_file, api_key=api_key, create_csr=False)
                 return
@@ -192,7 +202,8 @@ def _process(domain, order_id, failed_pk_check=False):
             LOGGER.info("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
             LOGGER.info("Duplicate Response: %s" % response)
             if response.lower().strip() == 'y': # TODO: make this more robust
-                _download_and_install_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_duplicate=True)
+                cert, key, chain = _download_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_duplicate=True)
+                _install_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), cert=cert, key=key, chain=chain)
             else:
                 if not failed_pk_check:
                     _download_and_install_cert(order_id, domain, api_key=api_key, create_csr=False)
@@ -233,7 +244,7 @@ def _download_and_install_cert(order_id, domain, private_key='', api_key='', cre
     return
 
 
-def _download_and_install_multidomain_cert(order_id, common_name, domains, private_key='', api_key='', create_duplicate=False):
+def _download_multidomain_cert(order_id, common_name, domains, private_key='', api_key='', create_duplicate=False):
     LOGGER.info("Gathering information for the multi-domain cert")
     key = private_key
     if create_duplicate:
@@ -246,6 +257,8 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
         result = express_client.create_duplicate(order_id, duplicate_cert_data, api_key=api_key)
         import time
         time.sleep(5)
+        if not result.get('sub_id'):
+            raise Exception("Order: %s needs to have administrator approval to proceed.  Please contact your administrator or DigiCert Support for help. " % order_id)
         duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), CFG_PATH, common_name, api_key=api_key)
         cert = duplicate_cert.get("cert", None)
         chain = duplicate_cert.get("chain", None)
@@ -258,6 +271,10 @@ def _download_and_install_multidomain_cert(order_id, common_name, domains, priva
     if not key:
         raise Exception('Could not find private key')
 
+    return cert, chain, key
+
+
+def _install_multidomain_cert(order_id, common_name, domains, cert, key, chain, api_key=''):
     # get all virtual hosts
     apache_parser = parsers.prepare_parser(common_name, cert, key, chain)
     LOGGER.info("Now, getting the vhosts that are on this server")

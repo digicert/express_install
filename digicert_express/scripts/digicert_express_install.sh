@@ -255,6 +255,7 @@ FILEPATH="/etc/digicert/$DOMAIN_PATH"
 ORDER=""
 CERTIFICATE=""
 CERTIFICATE_CHAIN=""
+SUB=""
 
 if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
     if ! [[ "$CERTIFICATE" = "" || "$CERTIFICATE_CHAIN" = "" ]]; then
@@ -271,7 +272,7 @@ if ! [[ "$DOMAIN" = "" || "$ORDER" = "" ]]; then
 
     # run express install
     dc_log "running: sudo express_install all --domain \"$DOMAIN\" --order_id \"$ORDER\""
-    sudo express_install all --domain "$DOMAIN" --order_id "$ORDER"
+    sudo express_install all --domain "$DOMAIN" --order_id "$ORDER" --sub_id "$SUB"
 
 else
     dc_log "ERROR: You are missing your domain name or order id, please contact digicert support"
