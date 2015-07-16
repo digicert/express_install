@@ -7,7 +7,7 @@ def readme():
 
 setup(
     name='digicert_express',
-    version='1.1.44',
+    version='1.1.47',
     description='Express Install for DigiCert, Inc.',
     long_description=readme(),
     classifiers=[

@@ -122,7 +122,7 @@ def locate_cfg_file(cfg_file_names, file_type, prompt=True, validate_key=False, 
         try:
             while not file_path:
                 try:
-                    answer = raw_input("Do you have a private key for the certificate you want to install? [y/n]  ")
+                    answer = raw_input("Do you have a private key for the certificate you want to install? [y/n] ")
                     if answer and answer.strip().lower() == 'y':
                         file_path = raw_input('Please provide a full absolute path to the file: ')
                     else:

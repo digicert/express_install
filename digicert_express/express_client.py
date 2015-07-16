@@ -248,7 +248,7 @@ def list_duplicates(order_id, api_key=''):
 
 
 def get_duplicate(order_id, sub_id, file_path, domain, api_key=''):
-    LOGGER.info("In get_duplicate()")
+    LOGGER.info("Getting duplicate")
     LOGGER.info("order id: %s sub id: %s" % (order_id, sub_id))
     if not api_key:
         api_key = get_temp_api_key()
@@ -275,7 +275,7 @@ def get_duplicate(order_id, sub_id, file_path, domain, api_key=''):
 
 
 def create_duplicate(order_id, cert_data, api_key=''):
-    LOGGER.info("In create_duplicate()")
+    LOGGER.info("Creating duplicate")
     if not api_key:
         api_key = get_temp_api_key()
 

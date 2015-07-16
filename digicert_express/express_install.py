@@ -40,10 +40,8 @@ def run():
     all_parser = subparsers.add_parser("all", help='Download your certificate and secure your domain in one step')
     all_parser.add_argument("--domain", action="store", help="Domain name to secure")
     all_parser.add_argument("--key", action="store", help="Path to private key file used to order certificate")
-    all_parser.add_argument("--sub_id", action="store", help="Duplicate ID if it exists")
     all_parser.add_argument("--api_key", action="store", help="Skip authentication step with a DigiCert API key")
     all_parser.add_argument("--order_id", action="store", help="DigiCert order ID for certificate")
-    all_parser.add_argument("--restart_apache", action="store_true", help="Restart Apache server without prompting")
     all_parser.set_defaults(func=do_everything)
 
     args = parser.parse_args()
@@ -71,12 +69,12 @@ def do_everything(args):
 
     order_id = args.order_id
     domain = args.domain
-    sub_id = args.sub_id
-    restart_web_server = args.restart_apache
-    do_everything_with_args(order_id=order_id, domain=domain, sub_id=sub_id, restart_apache=restart_web_server)
+    api_key = args.api_key
+    key = args.key
+    do_everything_with_args(order_id=order_id, domain=domain, api_key=api_key, key=key)
 
 
-def do_everything_with_args(order_id='', domain='', restart_apache='', sub_id=''):
+def do_everything_with_args(order_id='', domain='', api_key='', key=''):
     LOGGER.info("Looking up order info")
     order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
 
@@ -112,7 +110,7 @@ def do_everything_with_args(order_id='', domain='', restart_apache='', sub_id=''
             _process(domain, order_id, failed_pk_check=True)
             return
 
-        if restart_apache or raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
+        if raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
             express_utils.restart_apache(domain)
             LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
         else:
@@ -189,8 +187,8 @@ def _process(domain, order_id, failed_pk_check=False):
                 LOGGER.info("Order is issued")
 
                 if order_info.get('allow_duplicates'):
-                    cert, key, chain = _download_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key, create_duplicate=True)
-                    _install_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), cert=cert, key=private_key_file, chain=chain, api_key=api_key)
+                    cert, key, chain = _download_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key, create_duplicate=False)
+                    _install_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), cert=cert, key=private_key_file, chain=chain, api_key=api_key)
                 else:
                     _download_and_install_cert(order_id, domain, private_key=private_key_file, api_key=api_key, create_csr=False)
                 return
@@ -285,7 +283,7 @@ def _install_multidomain_cert(order_id, common_name, domains, cert, key, chain, 
     LOGGER.info("Found matching host: %s" % "\n".join(matched_hosts))
 
     if not matched_hosts:
-        raise Exception("Didn't find any hosts matching the domains for this certificate")
+        raise Exception("Didn't find any virtual hosts on this web server matching the domains for this certificate")
 
     # prepare menu selection for the user to choose which virtual hosts to configure
     choices = zip(range(1, len(matched_hosts)+1), matched_hosts)

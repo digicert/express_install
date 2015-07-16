@@ -196,7 +196,7 @@ class BaseParser(object):
 
     def get_vhosts_on_server(self):
         """ Use this method to search for all virtual hosts configured on the web server """
-        LOGGER.info("In get vhosts on server")
+        LOGGER.info("Getting vhosts on server")
         server_virtual_hosts = []
         matches = self.aug.match("/augeas/load/Httpd/incl")
         for match in matches:
