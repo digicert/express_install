@@ -74,6 +74,16 @@ def do_everything(args):
     do_everything_with_args(order_id=order_id, domain=domain, api_key=api_key, key=key)
 
 
+def finalize_and_restart(domain):
+    if raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
+        express_utils.restart_apache(domain)
+        LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
+    else:
+        LOGGER.info('Restart your Apache server for your changes to take effect.')
+        LOGGER.info('Use the following command to restart your Apache server and verify your SSL settings:')
+        LOGGER.info('sudo express_install restart_apache --domain "{0}"'.format(domain))
+
+
 def do_everything_with_args(order_id='', domain='', api_key='', key=''):
     LOGGER.info("Looking up order info")
     order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
@@ -98,25 +108,20 @@ def do_everything_with_args(order_id='', domain='', api_key='', key=''):
             dns_names = express_utils.get_dns_names_from_openssl(cert)
 
             _install_multidomain_cert(order_id, domain, dns_names, cert, key=key, chain=chain)
+            finalize_and_restart()
             return
 
         if not cert and not chain and not key:
             LOGGER.info("Did not find cert, chain and key, proceeding...")
             _process(domain, order_id, failed_pk_check=False)
+            finalize_and_restart()
             return
 
         if cert and chain and not key:
             LOGGER.info("Found cert and chain but not key, proceeding...")
             _process(domain, order_id, failed_pk_check=True)
+            finalize_and_restart()
             return
-
-        if raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
-            express_utils.restart_apache(domain)
-            LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
-        else:
-            LOGGER.info('Restart your Apache server for your changes to take effect.')
-            LOGGER.info('Use the following command to restart your Apache server and verify your SSL settings:')
-            LOGGER.info('sudo express_install restart_apache --domain "{0}"'.format(domain))
     else:
         LOGGER.error("ERROR: You must specify a valid domain or order id")
 
@@ -196,8 +201,8 @@ def _process(domain, order_id, failed_pk_check=False):
         raise Exception('This certificate cannot be installed at this time because something happened getting the status back from the site')
     else:
         if order_info.get('allow_duplicates'):
-            response = raw_input("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
-            LOGGER.info("Do you want to create and install a duplicate for a multi-domain certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
+            response = raw_input("Do you want to create and install a duplicate for a certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
+            LOGGER.info("Do you want to create and install a duplicate for a certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
             LOGGER.info("Duplicate Response: %s" % response)
             if response.lower().strip() == 'y': # TODO: make this more robust
                 cert, key, chain = _download_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_duplicate=True)
@@ -243,7 +248,7 @@ def _download_and_install_cert(order_id, domain, private_key='', api_key='', cre
 
 
 def _download_multidomain_cert(order_id, common_name, domains, private_key='', api_key='', create_duplicate=False):
-    LOGGER.info("Gathering information for the multi-domain cert")
+    LOGGER.info("Getting ready to download the certificate.")
     key = private_key
     if create_duplicate:
         LOGGER.info("Creating duplicate certificate")
@@ -253,8 +258,9 @@ def _download_multidomain_cert(order_id, common_name, domains, private_key='', a
         duplicate_cert_data = {"certificate": {"common_name": common_name, "csr": csr, "signature_hash": "sha256", "server_platform": {"id": 2}, "dns_names": domains}}
 
         result = express_client.create_duplicate(order_id, duplicate_cert_data, api_key=api_key)
+        LOGGER.info("Please wait a few seconds")
         import time
-        time.sleep(5)
+        time.sleep(7)
         if not result.get('sub_id'):
             raise Exception("Order: %s needs to have administrator approval to proceed.  Please contact your administrator or DigiCert Support for help. " % order_id)
         duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), CFG_PATH, common_name, api_key=api_key)
@@ -294,7 +300,7 @@ def _install_multidomain_cert(order_id, common_name, domains, cert, key, chain, 
     prompt_hosts = "\n".join(doc_hosts)
     LOGGER.info("The following virtual hosts on this server match the certificate. ")
     LOGGER.info(prompt_hosts)
-    selected = raw_input("Choose which hosts to configure:\n\n")
+    selected = raw_input("Choose which hosts to configure:\nEnter comma separated numbers to select multiple hosts.  IE 1,2,3\n")
 
     # from user input, determine the domains chosen.
     selection = selected.split(',')
