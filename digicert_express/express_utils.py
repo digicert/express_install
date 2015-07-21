@@ -44,7 +44,7 @@ LOGGER = ExpressInstallLogger(file_name=LOGFILE).get_logger()
 SUPPORTED_PLATFORMS = ['Ubuntu', 'CentOS', 'Debian', '10.10.3']
 
 
-def restart_apache(domain=''):
+def restart_apache():
     LOGGER.info("Restarting your apache server")
 
     distro_name = determine_platform()

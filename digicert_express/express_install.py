@@ -49,7 +49,6 @@ def run():
     try:
         print ''
         LOGGER.info('DigiCert Express Install Web Server Configuration Utility')
-        raw_input("I'll attempt to secure virtual hosts configured on this web server with an SSL certificate.  Press ENTER to continue.")
         print ''
         verify_requirements()
         args.func(args)
@@ -60,7 +59,7 @@ def run():
 
 
 def restart_apache(args):
-    express_utils.restart_apache(args.domain)
+    express_utils.restart_apache()
 
 
 def do_everything(args):
@@ -76,15 +75,17 @@ def do_everything(args):
 
 def finalize_and_restart(domain):
     if raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
-        express_utils.restart_apache(domain)
+        express_utils.restart_apache()
         LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
     else:
         LOGGER.info('Restart your Apache server for your changes to take effect.')
         LOGGER.info('Use the following command to restart your Apache server and verify your SSL settings:')
-        LOGGER.info('sudo express_install restart_apache --domain "{0}"'.format(domain))
+        LOGGER.info('sudo express_install restart_apache')
 
 
 def do_everything_with_args(order_id='', domain='', api_key='', key=''):
+    raw_input("I'll attempt to secure virtual hosts configured on this web server with an SSL certificate.  Press ENTER to continue.")
+    print ''
     LOGGER.info("Looking up order info")
     order_id, domain, common_name = express_client.get_order_and_domain_info(order_id, domain)
 
@@ -108,19 +109,19 @@ def do_everything_with_args(order_id='', domain='', api_key='', key=''):
             dns_names = express_utils.get_dns_names_from_openssl(cert)
 
             _install_multidomain_cert(order_id, domain, dns_names, cert, key=key, chain=chain)
-            finalize_and_restart()
+            finalize_and_restart(domain)
             return
 
         if not cert and not chain and not key:
             LOGGER.info("Did not find cert, chain and key, proceeding...")
             _process(domain, order_id, failed_pk_check=False)
-            finalize_and_restart()
+            finalize_and_restart(domain)
             return
 
         if cert and chain and not key:
             LOGGER.info("Found cert and chain but not key, proceeding...")
             _process(domain, order_id, failed_pk_check=True)
-            finalize_and_restart()
+            finalize_and_restart(domain)
             return
     else:
         LOGGER.error("ERROR: You must specify a valid domain or order id")
@@ -260,7 +261,7 @@ def _download_multidomain_cert(order_id, common_name, domains, private_key='', a
         result = express_client.create_duplicate(order_id, duplicate_cert_data, api_key=api_key)
         LOGGER.info("Please wait a few seconds")
         import time
-        time.sleep(7)
+        time.sleep(12)
         if not result.get('sub_id'):
             raise Exception("Order: %s needs to have administrator approval to proceed.  Please contact your administrator or DigiCert Support for help. " % order_id)
         duplicate_cert = express_client.get_duplicate(order_id, result.get('sub_id'), CFG_PATH, common_name, api_key=api_key)
