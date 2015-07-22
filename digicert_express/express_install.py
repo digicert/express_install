@@ -193,7 +193,7 @@ def _process(domain, order_id, failed_pk_check=False):
                 LOGGER.info("Order is issued")
 
                 if order_info.get('allow_duplicates'):
-                    cert, key, chain = _download_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key, create_duplicate=False)
+                    cert, chain, key = _download_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), private_key=private_key_file, api_key=api_key, create_duplicate=False)
                     _install_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), cert=cert, key=private_key_file, chain=chain, api_key=api_key)
                 else:
                     _download_and_install_cert(order_id, domain, private_key=private_key_file, api_key=api_key, create_csr=False)
@@ -206,8 +206,8 @@ def _process(domain, order_id, failed_pk_check=False):
             LOGGER.info("Do you want to create and install a duplicate for a certificate? \n Answering no will attempt to install the original certificate.  [y/n] ")
             LOGGER.info("Duplicate Response: %s" % response)
             if response.lower().strip() == 'y': # TODO: make this more robust
-                cert, key, chain = _download_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), api_key=api_key, create_duplicate=True)
-                _install_multidomain_cert(order_id, domain, domains = order_info.get('certificate').get('dns_names'), cert=cert, key=key, chain=chain)
+                cert, chain, key = _download_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), api_key=api_key, create_duplicate=True)
+                _install_multidomain_cert(order_id, domain, domains=order_info.get('certificate').get('dns_names'), cert=cert, key=key, chain=chain)
             else:
                 if not failed_pk_check:
                     _download_and_install_cert(order_id, domain, api_key=api_key, create_csr=False)

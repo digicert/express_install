@@ -262,7 +262,7 @@ def create_csr(server_name, org="", city="", state="", country="", key_size=2048
     :param key_size:
     :return:
     """
-    LOGGER.info("Creating CSR file for {0}...".format(server_name))
+    LOGGER.info("Creating CSR file for {0}...".format(replace_chars(server_name)))
     # remove http:// and https:// from server_name
     server_name = server_name.replace("http://", "")
     server_name = server_name.replace("https://", "")
