@@ -74,7 +74,7 @@ def do_everything(args):
 
 
 def finalize_and_restart(domain):
-    if raw_input('Would you like to restart Apache now? (Y/n) ') != 'n':
+    if raw_input('Would you like to restart Apache now? [Y/n] ') != 'n':
         express_utils.restart_apache()
         LOGGER.info("Congratulations, you've successfully installed your certificate to (%s)." % domain)
     else:
@@ -287,10 +287,10 @@ def _install_multidomain_cert(order_id, common_name, domains, cert, key, chain, 
 
     # find matches from virtuals hosts and domains
     matched_hosts = parsers.compare_match(virtual_hosts, domains)
-    LOGGER.info("Found matching host: %s" % "\n".join(matched_hosts))
+    LOGGER.info("Found matching host: \n%s" % "\n".join(matched_hosts))
 
     if not matched_hosts:
-        raise Exception("Didn't find any virtual hosts on this web server matching the domains for this certificate")
+        raise Exception("Didn't find any virtual hosts on this web server matching the domains for this certificate.\nCheck '/etc/digicert' for downloaded certificates")
 
     # prepare menu selection for the user to choose which virtual hosts to configure
     choices = zip(range(1, len(matched_hosts)+1), matched_hosts)
@@ -318,19 +318,27 @@ def _install_multidomain_cert(order_id, common_name, domains, cert, key, chain, 
         apache_parser.common_name = host
         parsers.configure_apache(host, apache_parser.cert_path, apache_parser.key_path, apache_parser.chain_path, is_multidomain=True)
 
-    cleanup()
+    cleanup(domain=common_name)
 
     return
 
 
-def cleanup():
+def cleanup(domain=''):
     LOGGER.info("Cleaning up files")
     for path in os.listdir(CFG_PATH):
         if path.endswith('.crt'):
-            os.remove(CFG_PATH + '/' + path)
+            os.remove('%s/%s' % (CFG_PATH,  path))
 
     if os.path.exists('/tmp/certs'):
         shutil.rmtree('/tmp/certs')
+
+    if domain:
+        pem_file = '%s/%s' % (CFG_PATH, domain)
+        pem_file = pem_file.replace('.', '_')
+        pem_file = '%s.pem' % pem_file
+        if os.path.exists(pem_file):
+            os.remove(pem_file)
+
 
 
 if __name__ == '__main__':

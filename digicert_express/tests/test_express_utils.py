@@ -2,7 +2,6 @@ __author__ = 'jfischer'
 
 import unittest
 import express_utils
-import subprocess
 import os
 
 class TestExpressUtils(unittest.TestCase):
@@ -41,7 +40,6 @@ class TestExpressUtils(unittest.TestCase):
 
     def test_subprocess(self):
         command = 'sudo service apache2 restart'
-        # print subprocess.call(command, shell=True)
         os.system(command)
 
 
