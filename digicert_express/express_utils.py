@@ -33,7 +33,7 @@ APACHE_SERVICES = {
     'Ubuntu': 'apache2ctl'
 }
 
-HOST = 'localhost.digicert.com'
+HOST = 'www.digicert.com'
 DEBIAN_DEPS = ['augeas-lenses', 'augeas-tools', 'libaugeas0', 'openssl', 'python-pip']
 CENTOS_DEPS = ['openssl', 'augeas-libs', 'augeas', 'mod_ssl']
 
